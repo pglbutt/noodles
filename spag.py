@@ -7,7 +7,6 @@ import sys
 class ToughNoodles(Exception):
     pass
 
-
 class Endpoint(object):
 
     ENDPOINT_FILE = '.spag.endpoint'
@@ -29,26 +28,44 @@ class Endpoint(object):
         if os.path.exists(cls.ENDPOINT_FILE):
             os.remove(cls.ENDPOINT_FILE)
 
+@click.group()
+@click.version_option()
+def cli():
+    """Spag.
 
-@click.command()
-@click.argument('endpoint', default=None, required=False)
-@click.option('--die', is_flag=True, default=False, required=False,
-              help='Clear the endpoint')
-def cli(die, endpoint=None):
-    if die:
-        Endpoint.clear()
-        return
+    This is the spag http client. It's spagtacular.
+    """
 
+@cli.command('set')
+@click.argument('endpoint', default=None)
+def spag_set(endpoint=None):
+    """Set the endpoint."""
     try:
-        if not endpoint:
-            endpoint = Endpoint.get()
-        else:
-            Endpoint.set(endpoint)
+        Endpoint.set(endpoint)
         click.echo(endpoint)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
 
+@cli.command('show')
+def spag_show():
+    """Show the endpoint."""
+    try:
+        endpoint = Endpoint.get()
+        click.echo(endpoint)
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+
+@cli.command('clear')
+def spag_clear():
+    """Clear the endpoint."""
+    try:
+        Endpoint.clear()
+        click.echo("Endpoint cleared.")
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
 
 if __name__ == '__main__':
     cli()
