@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
-import click
 import os
 import sys
+import json
+import functools
+
+import click
+import requests
 
 class ToughNoodles(Exception):
     pass
@@ -27,6 +31,19 @@ class Endpoint(object):
     def clear(cls):
         if os.path.exists(cls.ENDPOINT_FILE):
             os.remove(cls.ENDPOINT_FILE)
+
+def fix_endpoint(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if kwargs['endpoint'] is None:
+            try:
+                endpoint = Endpoint.get()
+                kwargs['endpoint'] = endpoint
+            except ToughNoodles as e:
+                click.echo(str(e), err=True)
+                sys.exit(1)
+        return f(*args, **kwargs)
+    return wrapper
 
 @click.group()
 @click.version_option()
@@ -66,6 +83,16 @@ def spag_clear():
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
+
+@cli.command('get')
+@click.argument('resource')
+@click.argument('endpoint', default=None, required=False)
+@fix_endpoint
+def get(resource, endpoint=None):
+    """HTTP GET"""
+    uri = endpoint+resource
+    r = requests.get(uri)
+    click.echo(json.dumps(r.json(), indent=4))
 
 if __name__ == '__main__':
     cli()

@@ -13,8 +13,13 @@ virtualenv env
 source env/bin/activate
 pip install -r requirements.txt
 pip install --editable .
-spag
-Hello World!
+spag set http://localhost:5000
+spag show
+http://localhost:5000
+spag get /
+{
+    'name': 'spag'
+}
 ```
 
 ## Tests
