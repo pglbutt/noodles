@@ -14,7 +14,7 @@ def run_spag(*args):
     cmd = [SPAG_PROG] + list(args)
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
-    return (out, err, p.returncode)
+    return (out.decode('utf-8'), err.decode('utf-8'), p.returncode)
 
 
 class TestSpag(unittest.TestCase):
