@@ -15,6 +15,13 @@ spag
 Hello World!
 ```
 
+## Tests
+
+```bash
+pip install nose
+nosetests tests/
+```
+
 ## Future Features
 
 1. Set an __endpoint__ that lets you do subsequent shorter requests to that endpoint.
