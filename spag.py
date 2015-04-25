@@ -34,7 +34,7 @@ class Endpoint(object):
 @click.argument('endpoint', default=None, required=False)
 @click.option('--die', is_flag=True, default=False, required=False,
               help='Clear the endpoint')
-def spag(die, endpoint=None):
+def cli(die, endpoint=None):
     if die:
         Endpoint.clear()
         return
@@ -51,4 +51,4 @@ def spag(die, endpoint=None):
 
 
 if __name__ == '__main__':
-    spag()
+    cli()
