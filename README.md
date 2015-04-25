@@ -1,5 +1,7 @@
 # noodles
 
+[![Build Status](https://travis-ci.org/pglbutt/noodles.svg?branch=master)](https://travis-ci.org/pglbutt/noodles)
+
 The only command line client worthy of pglbutts
 
 ## How
