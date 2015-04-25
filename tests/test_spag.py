@@ -1,6 +1,7 @@
 import unittest
 import subprocess
 import os
+import json
 
 SPAG_PROG = 'spag'
 
@@ -44,3 +45,27 @@ class TestSpag(unittest.TestCase):
         out, err, ret = run_spag('set')
         self.assertTrue(err.startswith('Usage:'))
         self.assertNotEqual(ret, 0)
+
+    # HTTP GET Tests
+    def test_get_no_endpoint(self):
+        run_spag('clear')
+        out, err, ret = run_spag('get', '/auth')
+        self.assertNotEqual(ret, 0)
+        self.assertEqual(err, 'Endpoint not set\n')
+
+    def test_get_supply_endpoint(self):
+        run_spag('clear')
+        out, err, ret = run_spag('get', '/auth', 'http://localhost:5000')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"token": "abcde"})
+
+    def test_get_presupply_endpoint(self):
+        run_spag('clear')
+        out, err, ret = run_spag('set', 'http://localhost:5000')
+        self.assertEqual(out, 'http://localhost:5000\n')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        out, err, ret = run_spag('get', '/things')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"things": [{"id": "1"}]})
+
