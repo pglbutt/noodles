@@ -26,16 +26,16 @@ class BaseTest(unittest.TestCase):
         run_spag('clear')
 
 
-class TestEndpoint(BaseTest):
+class TestEnvironment(BaseTest):
 
     def test_spag_endpoint_crud(self):
         out, err, ret = run_spag('set', 'abcdefgh')
-        self.assertEqual(out, 'abcdefgh\n')
+        self.assertEqual(out, 'endpoint: abcdefgh\n')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
         out, err, ret = run_spag('show')
-        self.assertEqual(out, 'abcdefgh\n')
+        self.assertEqual(out, 'endpoint: abcdefgh\n')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
@@ -48,10 +48,20 @@ class TestEndpoint(BaseTest):
         self.assertEqual(err, 'Endpoint not set\n')
         self.assertNotEqual(ret, 0)
 
-    def test_spag_set_endpoint_failure(self):
+    def test_spag_set_environment_failure(self):
         out, err, ret = run_spag('set')
-        self.assertTrue(err.startswith('Usage:'))
+        self.assertEqual(err, 'Error: You must provide something to set!\n')
         self.assertNotEqual(ret, 0)
+
+    def test_set_endoint_and_header(self):
+        out, err, ret = run_spag('set', ENDPOINT, '-H', 'pglbutt:pglbutt')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertIn('headers', out)
+        out, err, ret = run_spag('get', '/headers')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
+
 
 
 class TestGet(BaseTest):
@@ -68,7 +78,7 @@ class TestGet(BaseTest):
 
     def test_get_presupply_endpoint(self):
         out, err, ret = run_spag('set', ENDPOINT)
-        self.assertEqual(out, '{0}\n'.format(ENDPOINT))
+        self.assertEqual(out, 'endpoint: {0}\n'.format(ENDPOINT))
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         out, err, ret = run_spag('get', '/things')
