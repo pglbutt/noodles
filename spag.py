@@ -7,37 +7,49 @@ import functools
 
 import click
 import requests
+import yaml
 
 class ToughNoodles(Exception):
     pass
 
-class Endpoint(object):
+class Environment(object):
 
-    ENDPOINT_FILE = '.spag.endpoint'
+    ENV_FILE = '.env.yml'
     @classmethod
     def get(cls):
-        if os.path.exists(cls.ENDPOINT_FILE):
-            with click.open_file(cls.ENDPOINT_FILE, 'r') as f:
-                return f.read()
+        if os.path.exists(cls.ENV_FILE):
+            with click.open_file(cls.ENV_FILE, 'r') as f:
+                return yaml.load(f)
         else:
             raise ToughNoodles("Endpoint not set")
 
     @classmethod
-    def set(cls, endpoint):
-        with click.open_file(cls.ENDPOINT_FILE, 'w') as f:
-            f.write(endpoint)
+    def set(cls, **kwargs):
+        # This ignores any arguments that are set to None
+        kwargs = {key: value for key, value in kwargs.items() if value is not None}
+
+        if os.path.exists(cls.ENV_FILE):
+            f = click.open_file(cls.ENV_FILE, 'r')
+            data = yaml.load(f)
+            data.update(kwargs)
+        else:
+            data = kwargs
+
+        f = click.open_file(cls.ENV_FILE, 'w+')
+        yaml.safe_dump(data, f)
+        return data
 
     @classmethod
     def clear(cls):
-        if os.path.exists(cls.ENDPOINT_FILE):
-            os.remove(cls.ENDPOINT_FILE)
+        if os.path.exists(cls.ENV_FILE):
+            os.remove(cls.ENV_FILE)
 
 def determine_endpoint(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if kwargs['endpoint'] is None:
             try:
-                endpoint = Endpoint.get()
+                endpoint = Environment.get()['endpoint']
                 kwargs['endpoint'] = endpoint
             except ToughNoodles as e:
                 click.echo(str(e), err=True)
@@ -49,8 +61,14 @@ def prepare_headers(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         header = kwargs['header']
-        if header is None:
-            kwargs['header'] = {}
+        if header is None or header == ():
+            try:
+                headers = Environment.get()['headers']
+                kwargs['header'] = headers
+            except ToughNoodles as e:
+                kwargs['header'] = None
+            except KeyError as e:
+                kwargs['header'] = None
         else:
             try:
                 # Headers come in as a tuple ('Header:Content', 'Header:Content')
@@ -87,12 +105,22 @@ def cli():
     """
 
 @cli.command('set')
-@click.argument('endpoint', default=None)
-def spag_set(endpoint=None):
-    """Set the endpoint."""
+@click.argument('endpoint', default=None, required=False)
+@click.option('--header', '-H', metavar = '<header>', multiple=True,
+              default=None, help='Header in the form key:value')
+@prepare_headers
+def spag_set(endpoint=None, header=None):
+    """Set the endpoint and/or headers."""
+    if endpoint is None and header == None:
+        click.echo("Error: You must provide something to set!", err=True)
+        sys.exit(1)
+
+    # This should be expandable to future environment variables
+    kwargs = {'endpoint': endpoint, 'headers': header}
     try:
-        Endpoint.set(endpoint)
-        click.echo(endpoint)
+        e = Environment.set(**kwargs)
+        for key, value in e.items():
+            click.echo("%s: %s" % (key, value)) 
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
@@ -101,8 +129,9 @@ def spag_set(endpoint=None):
 def spag_show():
     """Show the endpoint."""
     try:
-        endpoint = Endpoint.get()
-        click.echo(endpoint)
+        env = Environment.get()
+        for key, value in env.items():
+            click.echo("%s: %s" % (key, value))
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
@@ -111,7 +140,7 @@ def spag_show():
 def spag_clear():
     """Clear the endpoint."""
     try:
-        Endpoint.clear()
+        Environment.clear()
         click.echo("Endpoint cleared.")
     except ToughNoodles as e:
         click.echo(str(e), err=True)
