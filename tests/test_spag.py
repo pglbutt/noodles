@@ -55,7 +55,7 @@ class TestSpag(unittest.TestCase):
 
     def test_get_supply_endpoint(self):
         run_spag('clear')
-        out, err, ret = run_spag('get', '/auth', 'http://localhost:5000')
+        out, err, ret = run_spag('get', '/auth', '-e', 'http://localhost:5000')
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"token": "abcde"})
 
@@ -68,4 +68,42 @@ class TestSpag(unittest.TestCase):
         out, err, ret = run_spag('get', '/things')
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"things": [{"id": "1"}]})
+
+    # Headers Tests
+    def test_get_no_headers(self):
+        run_spag('clear')
+        out, err, ret = run_spag('get', '/headers', '-e', 'http://localhost:5000')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {})
+
+    def test_get_one_header(self):
+        run_spag('clear')
+        out, err, ret = run_spag('get', '/headers', '-e', 'http://localhost:5000', '-H', 'pglbutt:pglbutt')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
+
+    def test_get_two_headers(self):
+        run_spag('clear')
+        out, err, ret = run_spag('get', '/headers', '-e', 'http://localhost:5000',
+                                 '-H', 'pglbutt:pglbutt', '-H', 'wow:wow')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt", "Wow": "wow"})
+
+    def test_get_no_header(self):
+        run_spag('clear')
+        out, err, ret = run_spag('get', '/headers', '-e', 'http://localhost:5000', '-H')
+        self.assertNotEqual(ret, 0)
+        self.assertEqual(err, 'Error: -H option requires an argument\n')
+
+    def test_get_invalid_header(self):
+        run_spag('clear')
+        out, err, ret = run_spag('get', '/headers', '-e', 'http://localhost:5000', '-H', 'poo')
+        self.assertNotEqual(ret, 0)
+        self.assertEqual(err, 'Error: Invalid header!\n')
+
+    def test_show_headers(self):
+        run_spag('clear')
+        out, err, ret = run_spag('get', '/headers', '-e', 'http://localhost:5000', '-h')
+        self.assertEqual(ret, 0)
+        self.assertIn('content-type: application/json', out)
 
