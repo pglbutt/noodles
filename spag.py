@@ -32,7 +32,7 @@ class Endpoint(object):
         if os.path.exists(cls.ENDPOINT_FILE):
             os.remove(cls.ENDPOINT_FILE)
 
-def fix_endpoint(f):
+def determine_endpoint(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if kwargs['endpoint'] is None:
@@ -42,6 +42,18 @@ def fix_endpoint(f):
             except ToughNoodles as e:
                 click.echo(str(e), err=True)
                 sys.exit(1)
+        return f(*args, **kwargs)
+    return wrapper
+
+def prepare_headers(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        header = kwargs['header']
+        if header is None:
+            kwargs['header'] = {}
+        else:
+            # Headers come in as a tuple ('Header:Content', 'Header:Content')
+            kwargs['header'] = {key: value for (key, value) in [h.split(':') for h in header]}
         return f(*args, **kwargs)
     return wrapper
 
@@ -86,13 +98,25 @@ def spag_clear():
 
 @cli.command('get')
 @click.argument('resource')
-@click.argument('endpoint', default=None, required=False)
-@fix_endpoint
-def get(resource, endpoint=None):
+@click.option('--endpoint', '-e', metavar='<endpoint>',
+              default=None, help='Manually override the endpoint')
+@click.option('--header', '-H', metavar = '<header>', multiple=True,
+              default=None, help='Header in the form Key:Value')
+@click.option('--show-headers', '-h', is_flag=True,
+              help='Prints the headers along with the response body')
+@determine_endpoint
+@prepare_headers
+def get(resource, endpoint=None, header=None, show_headers=False):
     """HTTP GET"""
-    uri = endpoint+resource
-    r = requests.get(uri)
-    click.echo(json.dumps(r.json(), indent=4))
+    uri = endpoint + resource
+
+    r = requests.get(uri, headers=header)
+
+    if show_headers:
+        for header, value in r.headers.items():
+            click.echo("%s: %s" % (header, value))
+
+    click.echo("\n%s" % r.text)
 
 if __name__ == '__main__':
     cli()
