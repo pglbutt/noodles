@@ -52,8 +52,13 @@ def prepare_headers(f):
         if header is None:
             kwargs['header'] = {}
         else:
-            # Headers come in as a tuple ('Header:Content', 'Header:Content')
-            kwargs['header'] = {key: value for (key, value) in [h.split(':') for h in header]}
+            try:
+                # Headers come in as a tuple ('Header:Content', 'Header:Content')
+                kwargs['header'] = {key: value for (key, value) in [h.split(':') for h in header]}
+            except ValueError:
+                click.echo("Error: Invalid header!", err=True)
+                sys.exit(1)
+
         return f(*args, **kwargs)
     return wrapper
 
