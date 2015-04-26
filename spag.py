@@ -62,6 +62,22 @@ def prepare_headers(f):
         return f(*args, **kwargs)
     return wrapper
 
+def common_request_args(f):
+    @click.argument('resource')
+    @click.option('--endpoint', '-e', metavar='<endpoint>',
+                  default=None, help='Manually override the endpoint')
+    @click.option('--header', '-H', metavar = '<header>', multiple=True,
+                  default=None, help='Header in the form Key:Value')
+    @click.option('--show-headers', '-h', is_flag=True,
+                  help='Prints the headers along with the response body')
+    @determine_endpoint
+    @prepare_headers
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        return f(*args, **kwargs)
+    return wrapper
+
+
 @click.group()
 @click.version_option()
 def cli():
@@ -101,27 +117,28 @@ def spag_clear():
         click.echo(str(e), err=True)
         sys.exit(1)
 
+def show_response(resp, show_headers):
+    if show_headers:
+        for k, v in resp.headers.items():
+            click.echo("{0}: {1}".format(k, v))
+    click.echo(resp.text)
+
 @cli.command('get')
-@click.argument('resource')
-@click.option('--endpoint', '-e', metavar='<endpoint>',
-              default=None, help='Manually override the endpoint')
-@click.option('--header', '-H', metavar = '<header>', multiple=True,
-              default=None, help='Header in the form Key:Value')
-@click.option('--show-headers', '-h', is_flag=True,
-              help='Prints the headers along with the response body')
-@determine_endpoint
-@prepare_headers
+@common_request_args
 def get(resource, endpoint=None, header=None, show_headers=False):
     """HTTP GET"""
     uri = endpoint + resource
-
     r = requests.get(uri, headers=header)
+    show_response(r, show_headers)
 
-    if show_headers:
-        for header, value in r.headers.items():
-            click.echo("%s: %s" % (header, value))
-
-    click.echo("\n%s" % r.text)
+@cli.command('post')
+@common_request_args
+@click.option('--data', required=False, help='the post data')
+def post(resource, endpoint=None, data=None, header=None, show_headers=False):
+    """HTTP POST"""
+    uri = endpoint + resource
+    r = requests.post(uri, data=data, headers=header)
+    show_response(r, show_headers)
 
 if __name__ == '__main__':
     cli()
