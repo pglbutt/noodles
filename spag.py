@@ -162,11 +162,29 @@ def get(resource, endpoint=None, header=None, show_headers=False):
 
 @cli.command('post')
 @common_request_args
-@click.option('--data', required=False, help='the post data')
+@click.option('--data', '-d', required=False, help='the post data')
 def post(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP POST"""
     uri = endpoint + resource
     r = requests.post(uri, data=data, headers=header)
+    show_response(r, show_headers)
+
+@cli.command('put')
+@common_request_args
+@click.option('--data', '-d', required=False, help='the put data')
+def put(resource, endpoint=None, data=None, header=None, show_headers=False):
+    """HTTP PUT"""
+    uri = endpoint + resource
+    r = requests.put(uri, data=data, headers=header)
+    show_response(r, show_headers)
+
+@cli.command('patch')
+@common_request_args
+@click.option('--data', '-d', required=False, help='the patch data')
+def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
+    """HTTP PATCH"""
+    uri = endpoint + resource
+    r = requests.patch(uri, data=data, headers=header)
     show_response(r, show_headers)
 
 if __name__ == '__main__':
