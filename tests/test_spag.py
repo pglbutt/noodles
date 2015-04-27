@@ -3,8 +3,14 @@ import subprocess
 import os
 import json
 
+import spag_files
+
+# TODO: read this from a config?
 SPAG_PROG = 'spag'
 ENDPOINT = 'http://localhost:5000'
+RESOURCES_DIR = os.path.join(os.path.dirname(__file__), 'resources')
+V1_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v1')
+V2_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v2')
 
 def run_spag(*args):
     """
@@ -177,3 +183,88 @@ class TestDelete(BaseTest):
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"things": []})
 
+
+class TestSpagFiles(BaseTest):
+
+    def setUp(self):
+        super(TestSpagFiles, self).setUp()
+        run_spag('set', ENDPOINT)
+        self.table = spag_files.SpagFilesLookup(RESOURCES_DIR)
+
+    def test_spag_lookup(self):
+        expected = {
+            'auth.yml': set([
+                os.path.join(RESOURCES_DIR, 'auth.yml')]),
+            'delete_thing.yml': set([
+                os.path.join(RESOURCES_DIR, 'delete_thing.yml')]),
+            'patch_thing.yml': set([
+                os.path.join(V2_RESOURCES_DIR, 'patch_thing.yml')]),
+            'post_thing.yml': set([
+                os.path.join(V1_RESOURCES_DIR, 'post_thing.yml'),
+                os.path.join(V2_RESOURCES_DIR, 'post_thing.yml')]),
+            'get_thing.yml': set([
+                os.path.join(V1_RESOURCES_DIR, 'get_thing.yml'),
+                os.path.join(V2_RESOURCES_DIR, 'get_thing.yml')]),
+            'headers.yml': set([
+                os.path.join(RESOURCES_DIR, 'headers.yml')]),
+        }
+        self.assertEqual(self.table, expected)
+
+    def test_spag_load_file(self):
+        content = spag_files.load_file(os.path.join(RESOURCES_DIR, 'auth.yml'))
+        self.assertEqual(content['method'], 'GET')
+        self.assertEqual(content['uri'], '/auth')
+        self.assertEqual(content['headers'], {'Accept': 'application/json'})
+
+    def test_spag_request_get(self):
+        out, err, ret = run_spag('request', 'auth.yml', '--dir', RESOURCES_DIR)
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"token": "abcde"})
+        self.assertEqual(err, '')
+
+    def test_spag_request_post(self):
+        out, err, ret = run_spag('request', 'v2/post_thing.yml',
+                                 '--dir', RESOURCES_DIR)
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"id": "c"})
+        self.assertEqual(err, '')
+
+    def test_spag_request_patch(self):
+        # stuff in patch_thing.yml needs to match stuff here
+        _, _, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
+                              '-H', 'content-type: application/json')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('request', 'patch_thing.yml',
+                                 '--dir', RESOURCES_DIR)
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"id": "c"})
+        self.assertEqual(err, '')
+
+    def test_spag_request_delete(self):
+        _, _, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
+                              '-H', 'content-type: application/json')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('request', 'delete_thing.yml',
+                                 '--dir', RESOURCES_DIR)
+        self.assertEqual(ret, 0)
+        self.assertEqual(out, '\n')
+        self.assertEqual(err, '')
+
+    def test_spag_request_data_option_overrides(self):
+        out, err, ret = run_spag('request', 'v2/post_thing.yml',
+                                 '--data', '{"id": "xyz"}',
+                                 '--dir', RESOURCES_DIR,
+                                 '-H', 'content-type: application/json')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"id": "xyz"})
+        self.assertEqual(err, '')
+
+    def test_spag_request_headers_override(self):
+        out, err, ret = run_spag('request', 'headers.yml',
+                                 '--dir', RESOURCES_DIR,
+                                 '-H', 'Hello: abcde')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out), {"Hello": "abcde"})
+        self.assertEqual(ret, 0)

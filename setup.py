@@ -7,7 +7,7 @@ setup(name='noodles',
       author='pglbutt',
       author_email='pglbutt@pglbutt.com',
       license='MIT',
-      py_modules=['spag'],
+      py_modules=['spag', 'spag_files', 'common'],
       install_requires=[
         'Click',
       ],

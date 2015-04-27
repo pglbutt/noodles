@@ -1,0 +1,4 @@
+method: GET
+uri: /auth
+headers:
+    Accept: "application/json"

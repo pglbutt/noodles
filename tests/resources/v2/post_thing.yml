@@ -1,0 +1,9 @@
+method: POST
+uri: /things
+headers:
+    Content-Type: "application/json"
+    Accept: "application/json"
+body: |
+    {
+        "id": "c"
+    }
