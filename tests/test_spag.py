@@ -30,12 +30,12 @@ class TestEndpoint(BaseTest):
 
     def test_spag_endpoint_crud(self):
         out, err, ret = run_spag('set', 'abcdefgh')
-        self.assertEqual(out, 'abcdefgh\n')
+        self.assertEqual(out, 'endpoint: abcdefgh\n')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
         out, err, ret = run_spag('show')
-        self.assertEqual(out, 'abcdefgh\n')
+        self.assertEqual(out, 'endpoint: abcdefgh\n')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
@@ -50,7 +50,7 @@ class TestEndpoint(BaseTest):
 
     def test_spag_set_endpoint_failure(self):
         out, err, ret = run_spag('set')
-        self.assertTrue(err.startswith('Usage:'))
+        self.assertEqual(err, 'Error: You must provide something to set!\n')
         self.assertNotEqual(ret, 0)
 
 
@@ -68,7 +68,7 @@ class TestGet(BaseTest):
 
     def test_get_presupply_endpoint(self):
         out, err, ret = run_spag('set', ENDPOINT)
-        self.assertEqual(out, '{0}\n'.format(ENDPOINT))
+        self.assertEqual(out, 'endpoint: {0}\n'.format(ENDPOINT))
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         out, err, ret = run_spag('get', '/things')
@@ -118,5 +118,35 @@ class TestPost(BaseTest):
                                  '-H', 'content-type: application/json')
         self.assertEquals(ret, 0)
         self.assertEquals(json.loads(out), {"id": "a"})
+        self.assertEquals(err, '')
+
+class TestPut(BaseTest):
+
+    def test_spag_put(self):
+        run_spag('set', ENDPOINT)
+        out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "a"})
+        self.assertEquals(err, '')
+        out, err, ret = run_spag('put', '/things/a', '--data', '{"id": "b"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "b"})
+        self.assertEquals(err, '')
+
+class TestPatch(BaseTest):
+
+    def test_spag_post(self):
+        run_spag('set', ENDPOINT)
+        out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "a"})
+        self.assertEquals(err, '')
+        out, err, ret = run_spag('patch', '/things/a', '--data', '{"id": "b"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "b"})
         self.assertEquals(err, '')
 

@@ -32,6 +32,16 @@ def get_thing(id):
         return ('', 404)
     return jsonify({"id": id})
 
+@app.route('/things/<id>', methods=['PUT', 'PATCH'])
+def modify_thing(id):
+    if id not in database:
+        return ('', 404)
+    else:
+        thing_id = request.json.get('id')
+        database.remove(id)
+        database.add(thing_id)
+    return jsonify({"id": str(thing_id)}), 201
+
 @app.route('/things/<id>', methods=['DELETE'])
 def delete_thing(id):
     if id in database:
