@@ -63,29 +63,6 @@ class TestEnvironment(BaseTest):
         self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
 
 
-
-class TestGet(BaseTest):
-
-    def test_get_no_endpoint(self):
-        out, err, ret = run_spag('get', '/auth')
-        self.assertNotEqual(ret, 0)
-        self.assertEqual(err, 'Endpoint not set\n')
-
-    def test_get_supply_endpoint(self):
-        out, err, ret = run_spag('get', '/auth', '-e', ENDPOINT)
-        self.assertEqual(ret, 0)
-        self.assertEqual(json.loads(out), {"token": "abcde"})
-
-    def test_get_presupply_endpoint(self):
-        out, err, ret = run_spag('set', ENDPOINT)
-        self.assertEqual(out, 'endpoint: {0}\n'.format(ENDPOINT))
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-        out, err, ret = run_spag('get', '/things')
-        self.assertEqual(ret, 0)
-        self.assertEqual(json.loads(out), {"things": []})
-
-
 class TestHeaders(BaseTest):
 
     def test_get_no_headers(self):
@@ -120,6 +97,28 @@ class TestHeaders(BaseTest):
         self.assertIn('content-type: application/json', out)
 
 
+class TestGet(BaseTest):
+
+    def test_get_no_endpoint(self):
+        out, err, ret = run_spag('get', '/auth')
+        self.assertNotEqual(ret, 0)
+        self.assertEqual(err, 'Endpoint not set\n')
+
+    def test_get_supply_endpoint(self):
+        out, err, ret = run_spag('get', '/auth', '-e', ENDPOINT)
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"token": "abcde"})
+
+    def test_get_presupply_endpoint(self):
+        out, err, ret = run_spag('set', ENDPOINT)
+        self.assertEqual(out, 'endpoint: {0}\n'.format(ENDPOINT))
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        out, err, ret = run_spag('get', '/things')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"things": []})
+
+
 class TestPost(BaseTest):
 
     def test_spag_post(self):
@@ -129,4 +128,52 @@ class TestPost(BaseTest):
         self.assertEquals(ret, 0)
         self.assertEquals(json.loads(out), {"id": "a"})
         self.assertEquals(err, '')
+
+class TestPut(BaseTest):
+
+    def test_spag_put(self):
+        run_spag('set', ENDPOINT)
+        out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "a"})
+        self.assertEquals(err, '')
+        out, err, ret = run_spag('put', '/things/a', '--data', '{"id": "b"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "b"})
+        self.assertEquals(err, '')
+
+class TestPatch(BaseTest):
+
+    def test_spag_patch(self):
+        run_spag('set', ENDPOINT)
+        out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "a"})
+        self.assertEquals(err, '')
+        out, err, ret = run_spag('patch', '/things/a', '--data', '{"id": "b"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "b"})
+        self.assertEquals(err, '')
+
+class TestDelete(BaseTest):
+
+    def test_spag_delete(self):
+        run_spag('set', ENDPOINT)
+        out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "a"})
+        self.assertEquals(err, '')
+        out, err, ret = run_spag('delete', '/things/a', '--data', '{"id": "b"}',
+                                 '-H', 'content-type: application/json')
+        self.assertEquals(ret, 0)
+        self.assertEquals(out, '\n')
+        self.assertEquals(err, '')
+        out, err, ret = run_spag('get', '/things')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"things": []})
 
