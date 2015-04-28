@@ -14,7 +14,7 @@ class ToughNoodles(Exception):
 
 class Environment(object):
 
-    ENV_FILE = '.env.yml'
+    ENV_FILE = '.spag.env'
     @classmethod
     def get(cls):
         if os.path.exists(cls.ENV_FILE):
@@ -36,7 +36,7 @@ class Environment(object):
             data = kwargs
 
         f = click.open_file(cls.ENV_FILE, 'w+')
-        yaml.safe_dump(data, f)
+        yaml.safe_dump(data, f, default_flow_style=False)
         return data
 
     @classmethod
