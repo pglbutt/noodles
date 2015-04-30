@@ -9,8 +9,8 @@ import click
 import requests
 import yaml
 
-class ToughNoodles(Exception):
-    pass
+import spag_files
+from common import ToughNoodles
 
 class Environment(object):
 
@@ -81,13 +81,13 @@ def prepare_headers(f):
     return wrapper
 
 def common_request_args(f):
-    @click.argument('resource')
     @click.option('--endpoint', '-e', metavar='<endpoint>',
                   default=None, help='Manually override the endpoint')
     @click.option('--header', '-H', metavar = '<header>', multiple=True,
                   default=None, help='Header in the form Key:Value')
     @click.option('--show-headers', '-h', is_flag=True,
                   help='Prints the headers along with the response body')
+    @click.option('--data', '-d', required=False, help='the request data')
     @determine_endpoint
     @prepare_headers
     @functools.wraps(f)
@@ -120,7 +120,7 @@ def spag_set(endpoint=None, header=None):
     try:
         e = Environment.set(**kwargs)
         for key, value in e.items():
-            click.echo("%s: %s" % (key, value)) 
+            click.echo("%s: %s" % (key, value))
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
@@ -153,16 +153,17 @@ def show_response(resp, show_headers):
     click.echo(resp.text)
 
 @cli.command('get')
+@click.argument('resource')
 @common_request_args
-def get(resource, endpoint=None, header=None, show_headers=False):
+def get(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP GET"""
     uri = endpoint + resource
-    r = requests.get(uri, headers=header)
+    r = requests.get(uri, headers=header, data=data)
     show_response(r, show_headers)
 
 @cli.command('post')
+@click.argument('resource')
 @common_request_args
-@click.option('--data', '-d', required=False, help='the post data')
 def post(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP POST"""
     uri = endpoint + resource
@@ -170,8 +171,8 @@ def post(resource, endpoint=None, data=None, header=None, show_headers=False):
     show_response(r, show_headers)
 
 @cli.command('put')
+@click.argument('resource')
 @common_request_args
-@click.option('--data', '-d', required=False, help='the put data')
 def put(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP PUT"""
     uri = endpoint + resource
@@ -179,8 +180,8 @@ def put(resource, endpoint=None, data=None, header=None, show_headers=False):
     show_response(r, show_headers)
 
 @cli.command('patch')
+@click.argument('resource')
 @common_request_args
-@click.option('--data', '-d', required=False, help='the patch data')
 def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP PATCH"""
     uri = endpoint + resource
@@ -188,13 +189,44 @@ def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
     show_response(r, show_headers)
 
 @cli.command('delete')
+@click.argument('resource')
 @common_request_args
-@click.option('--data', '-d', required=False, help='the delete data')
 def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP DELETE"""
     uri = endpoint + resource
     r = requests.delete(uri, data=data, headers=header)
     show_response(r, show_headers)
+
+@cli.command('request')
+@click.argument('name')
+@common_request_args
+# TODO: set dir in the environment, and then required=False
+@click.option('--dir', required=True,
+              help='the dir to search for request files')
+def request(name, dir, endpoint=None, data=None, header=None,
+            show_headers=False):
+    try:
+        filename = spag_files.SpagFilesLookup(dir).get_path(name)
+
+        # load the request data into a dict
+        req = spag_files.load_file(filename)
+        kwargs = {
+            'url': endpoint + req['uri'],
+            'headers': header or req.get('headers', {})
+        }
+        if data is not None:
+            kwargs['data'] = data
+        elif 'body' in req:
+            kwargs['data'] = req['body']
+
+        # I don't know how to call click-decorated get(), post(), etc functions
+        # Use requests directly instead
+        method = req['method'].lower()
+        resp = getattr(requests, method)(**kwargs)
+        show_response(resp, show_headers)
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
 
 if __name__ == '__main__':
     cli()

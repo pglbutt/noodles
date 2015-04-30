@@ -1,0 +1,4 @@
+method: GET
+uri: /headers
+headers:
+    Hello: application/json
