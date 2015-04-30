@@ -2,6 +2,7 @@ import unittest
 import subprocess
 import os
 import json
+import textwrap
 
 import spag_files
 
@@ -267,4 +268,36 @@ class TestSpagFiles(BaseTest):
                                  '-H', 'Hello: abcde')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"Hello": "abcde"})
+        self.assertEqual(ret, 0)
+
+    def test_spag_show_requests(self):
+        out, err, ret = run_spag('request', '--show', '--dir', RESOURCES_DIR)
+        def parse(text):
+            return list(sorted(text.split()))
+        expected = """
+            tests/resources/auth.yml
+            tests/resources/delete_thing.yml
+            tests/resources/headers.yml
+            tests/resources/v1/get_thing.yml
+            tests/resources/v1/post_thing.yml
+            tests/resources/v2/get_thing.yml
+            tests/resources/v2/patch_thing.yml
+            tests/resources/v2/post_thing.yml
+            """
+        self.assertEqual(err, '')
+        self.assertEqual(parse(out), parse(expected))
+        self.assertEqual(ret, 0)
+
+    def test_spag_show_single_request(self):
+        out, err, ret = run_spag('request', 'auth.yml', '--show',
+                                 '--dir', RESOURCES_DIR)
+        self.assertEqual(err, '')
+        self.assertEqual(out.strip(),
+            textwrap.dedent("""
+            File tests/resources/auth.yml
+            method: GET
+            uri: /auth
+            headers:
+                Accept: "application/json"
+            """).strip())
         self.assertEqual(ret, 0)

@@ -9,9 +9,9 @@ install:
   - "pip install ."
   - "pip install -r requirements.txt"
 # command to run tests, e.g. python setup.py test
-script: 
+script:
   - "pip install -r tests/test-requirements.txt"
   - "python tests/testapp.py &"
-  - "nosetests tests/"
+  - "nosetests -sv tests/"
 notifications:
   email: false

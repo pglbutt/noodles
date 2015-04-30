@@ -198,13 +198,32 @@ def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
     show_response(r, show_headers)
 
 @cli.command('request')
-@click.argument('name')
+@click.argument('name', required=False)
 @common_request_args
 # TODO: set dir in the environment, and then required=False
 @click.option('--dir', required=True,
               help='the dir to search for request files')
-def request(name, dir, endpoint=None, data=None, header=None,
-            show_headers=False):
+@click.option('--show', required=False, is_flag=True,
+              help='show request file, or show all request files if no name')
+def request(dir, name=None, endpoint=None, data=None, header=None,
+            show_headers=False, show=False):
+    if show and name is None:
+        table = spag_files.SpagFilesLookup(dir)
+        files = [os.path.relpath(path, '.')
+                 for paths in table.values()
+                 for path in paths]
+        for x in sorted(files):
+            click.echo(x)
+        return
+    elif show:
+        filename = spag_files.SpagFilesLookup(dir).get_path(name)
+        filename = os.path.relpath(filename, '.')
+        click.echo("File {0}".format(filename))
+        with click.open_file(filename, 'r') as f:
+            click.echo(f.read())
+        # maybe should we still perform the request?
+        return
+
     try:
         filename = spag_files.SpagFilesLookup(dir).get_path(name)
 
