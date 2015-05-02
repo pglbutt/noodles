@@ -8,7 +8,7 @@ def load_file(filename):
     if not os.path.exists(filename):
         raise ToughNoodles('File {0} not found'.format(filename))
     with open(filename, 'r') as f:
-        return yaml.load(f)
+        return yaml.safe_load(f)
 
 
 class SpagFilesLookup(dict):
@@ -32,17 +32,11 @@ class SpagFilesLookup(dict):
                               '/user/dir/myrequests/v2/delete_thing.yml]}
     """
 
-    INCLUDED_EXTENSIONS = ['.yml', '.yaml']
+    VALID_EXTENSION = '.yml'
 
     @classmethod
     def has_valid_extension(cls, name):
-        return any(name.endswith(e) for e in cls.INCLUDED_EXTENSIONS)
-
-    VALID_EXTENSIONS = ['.yml', '.yaml']
-
-    @classmethod
-    def has_valid_extension(cls, name):
-        return any(name.endswith(e) for e in cls.VALID_EXTENSIONS)
+        return name.endswith(cls.VALID_EXTENSION)
 
     def __init__(self, *dirs):
         self.dirs = set([])
@@ -83,6 +77,10 @@ class SpagFilesLookup(dict):
         """
         key = key.strip('/')
 
+        # support looking up both 'do_thing' and 'do_thing.yml'
+        if not self.has_valid_extension(key):
+            key += self.VALID_EXTENSION
+
         # 'a/b/c.yml' -> ('a', 'b', 'c.yml')
         key_parts = split_path(key)
 
@@ -104,3 +102,8 @@ class SpagFilesLookup(dict):
             raise ToughNoodles("Invalid request name {0}".format(key))
         else:
             return matches[0]
+
+    def get_file_list(self):
+        return [os.path.relpath(path, '.')
+                for paths in self.values()
+                for path in paths]

@@ -10,6 +10,7 @@ import requests
 import yaml
 
 import spag_files
+from spag_remembers import SpagRemembers
 from common import ToughNoodles
 
 class Environment(object):
@@ -160,6 +161,7 @@ def get(resource, endpoint=None, data=None, header=None, show_headers=False):
     uri = endpoint + resource
     r = requests.get(uri, headers=header, data=data)
     show_response(r, show_headers)
+    SpagRemembers.remember_request('get', r)
 
 @cli.command('post')
 @click.argument('resource')
@@ -169,6 +171,7 @@ def post(resource, endpoint=None, data=None, header=None, show_headers=False):
     uri = endpoint + resource
     r = requests.post(uri, data=data, headers=header)
     show_response(r, show_headers)
+    SpagRemembers.remember_request('post', r)
 
 @cli.command('put')
 @click.argument('resource')
@@ -178,6 +181,7 @@ def put(resource, endpoint=None, data=None, header=None, show_headers=False):
     uri = endpoint + resource
     r = requests.put(uri, data=data, headers=header)
     show_response(r, show_headers)
+    SpagRemembers.remember_request('put', r)
 
 @cli.command('patch')
 @click.argument('resource')
@@ -187,6 +191,7 @@ def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
     uri = endpoint + resource
     r = requests.patch(uri, data=data, headers=header)
     show_response(r, show_headers)
+    SpagRemembers.remember_request('patch', r)
 
 @cli.command('delete')
 @click.argument('resource')
@@ -196,6 +201,8 @@ def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
     uri = endpoint + resource
     r = requests.delete(uri, data=data, headers=header)
     show_response(r, show_headers)
+    SpagRemembers.remember_request('delete', r)
+
 
 @cli.command('request')
 @click.argument('name', required=False)
@@ -207,42 +214,38 @@ def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
               help='show request file, or show all request files if no name')
 def request(dir, name=None, endpoint=None, data=None, header=None,
             show_headers=False, show=False):
-    if show and name is None:
-        table = spag_files.SpagFilesLookup(dir)
-        files = [os.path.relpath(path, '.')
-                 for paths in table.values()
-                 for path in paths]
-        for x in sorted(files):
-            click.echo(x)
-        return
-    elif show:
-        filename = spag_files.SpagFilesLookup(dir).get_path(name)
-        filename = os.path.relpath(filename, '.')
-        click.echo("File {0}".format(filename))
-        with click.open_file(filename, 'r') as f:
-            click.echo(f.read())
-        # maybe should we still perform the request?
-        return
-
     try:
-        filename = spag_files.SpagFilesLookup(dir).get_path(name)
+        if show and name is None:
+            for x in spag_files.SpagFilesLookup(dir).get_file_list():
+                click.echo(x)
+        elif show:
+            filename = spag_files.SpagFilesLookup(dir).get_path(name)
+            filename = os.path.relpath(filename, '.')
+            click.echo("File {0}".format(filename))
+            with click.open_file(filename, 'r') as f:
+                click.echo(f.read())
+            # maybe should we still perform the request?
+        else:
+            filename = spag_files.SpagFilesLookup(dir).get_path(name)
 
-        # load the request data into a dict
-        req = spag_files.load_file(filename)
-        kwargs = {
-            'url': endpoint + req['uri'],
-            'headers': header or req.get('headers', {})
-        }
-        if data is not None:
-            kwargs['data'] = data
-        elif 'body' in req:
-            kwargs['data'] = req['body']
+            # load the request data into a dict
+            req = spag_files.load_file(filename)
+            kwargs = {
+                'url': endpoint + req['uri'],
+                'headers': header or req.get('headers', {})
+            }
+            if data is not None:
+                kwargs['data'] = data
+            elif 'body' in req:
+                kwargs['data'] = req['body']
 
-        # I don't know how to call click-decorated get(), post(), etc functions
-        # Use requests directly instead
-        method = req['method'].lower()
-        resp = getattr(requests, method)(**kwargs)
-        show_response(resp, show_headers)
+            # I don't know how to call click-decorated get(), post(), etc functions
+            # Use requests directly instead
+            method = req['method'].lower()
+            resp = getattr(requests, method)(**kwargs)
+            show_response(resp, show_headers)
+
+            SpagRemembers.remember_request(name, resp)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
