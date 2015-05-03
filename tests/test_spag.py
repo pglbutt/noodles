@@ -1,9 +1,11 @@
 import unittest
 import subprocess
 import os
+import shutil
 import json
 import textwrap
 
+import spag_remembers
 import spag_files
 
 # TODO: read this from a config?
@@ -12,6 +14,7 @@ ENDPOINT = 'http://localhost:5000'
 RESOURCES_DIR = os.path.join(os.path.dirname(__file__), 'resources')
 V1_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v1')
 V2_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v2')
+SPAG_REMEMBERS_DIR = spag_remembers.SpagRemembers.DIR
 
 def run_spag(*args):
     """
@@ -28,9 +31,23 @@ def run_spag(*args):
 
 class BaseTest(unittest.TestCase):
 
+    @classmethod
+    def _rm_remembers_dir(cls):
+        try:
+            # both os.removedirs and os.rmdir don't work on non-empty dirs
+            shutil.rmtree(SPAG_REMEMBERS_DIR)
+        except OSError as e:
+            pass
+
     def setUp(self):
+        super(BaseTest, self).setUp()
         run_spag('get', '/clear', '-e', ENDPOINT)
         run_spag('clear')
+        self._rm_remembers_dir()
+
+    def tearDown(self):
+        self._rm_remembers_dir()
+        super(BaseTest, self).tearDown()
 
 
 class TestEnvironment(BaseTest):
@@ -218,10 +235,11 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(content['headers'], {'Accept': 'application/json'})
 
     def test_spag_request_get(self):
-        out, err, ret = run_spag('request', 'auth.yml', '--dir', RESOURCES_DIR)
-        self.assertEqual(ret, 0)
-        self.assertEqual(json.loads(out), {"token": "abcde"})
-        self.assertEqual(err, '')
+        for name in ('auth.yml', 'auth'):
+            out, err, ret = run_spag('request', name, '--dir', RESOURCES_DIR)
+            self.assertEqual(err, '')
+            self.assertEqual(json.loads(out), {"token": "abcde"})
+            self.assertEqual(ret, 0)
 
     def test_spag_request_post(self):
         out, err, ret = run_spag('request', 'v2/post_thing.yml',
@@ -243,24 +261,24 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(err, '')
 
     def test_spag_request_delete(self):
-        _, _, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
-                              '-H', 'content-type: application/json')
-        self.assertEqual(ret, 0)
+        for name in ('delete_thing.yml', 'delete_thing'):
+            _, _, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
+                                  '-H', 'content-type: application/json')
+            self.assertEqual(ret, 0)
 
-        out, err, ret = run_spag('request', 'delete_thing.yml',
-                                 '--dir', RESOURCES_DIR)
-        self.assertEqual(ret, 0)
-        self.assertEqual(out, '\n')
-        self.assertEqual(err, '')
+            out, err, ret = run_spag('request', name, '--dir', RESOURCES_DIR)
+            self.assertEqual(ret, 0)
+            self.assertEqual(out, '\n')
+            self.assertEqual(err, '')
 
     def test_spag_request_data_option_overrides(self):
         out, err, ret = run_spag('request', 'v2/post_thing.yml',
                                  '--data', '{"id": "xyz"}',
                                  '--dir', RESOURCES_DIR,
                                  '-H', 'content-type: application/json')
-        self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"id": "xyz"})
         self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
 
     def test_spag_request_headers_override(self):
         out, err, ret = run_spag('request', 'headers.yml',
@@ -301,3 +319,74 @@ class TestSpagFiles(BaseTest):
                 Accept: "application/json"
             """).strip())
         self.assertEqual(ret, 0)
+
+
+class TestSpagRemembers(BaseTest):
+
+    def setUp(self):
+        super(TestSpagRemembers, self).setUp()
+        run_spag('set', ENDPOINT)
+
+    def test_spag_remembers_request(self):
+        auth_file = os.path.join(SPAG_REMEMBERS_DIR, 'v2/post_thing.yml')
+        last_file = os.path.join(SPAG_REMEMBERS_DIR, 'last.yml')
+
+        self.assertFalse(os.path.exists(SPAG_REMEMBERS_DIR))
+        self.assertFalse(os.path.exists(auth_file))
+        self.assertFalse(os.path.exists(last_file))
+
+        _, err, ret = run_spag('request', 'v2/post_thing.yml',
+                                 '--dir', RESOURCES_DIR)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        self.assertTrue(os.path.exists(SPAG_REMEMBERS_DIR))
+        self.assertTrue(os.path.exists(auth_file))
+        self.assertTrue(os.path.exists(last_file))
+
+        auth_data = spag_files.load_file(auth_file)
+        last_data = spag_files.load_file(last_file)
+
+        # check the saved request data
+        req = auth_data['request']
+        self.assertEqual(set(req.keys()),
+            set(['body', 'endpoint', 'uri', 'headers', 'method']))
+        self.assertEqual(req['method'], 'POST')
+        self.assertEqual(req['endpoint'], ENDPOINT)
+        self.assertEqual(req['uri'], '/things')
+        self.assertEqual(req['headers']['Accept'], 'application/json')
+        self.assertEqual(json.loads(req['body']), {"id": "c"})
+
+        # check the saved response data
+        resp = auth_data['response']
+        self.assertEqual(set(resp.keys()), set(['body', 'headers', 'status']))
+        self.assertEqual(resp['headers']['content-type'], 'application/json')
+        self.assertEqual(resp['status'], 201)
+        self.assertEqual(json.loads(resp['body']), {"id": "c"})
+
+    def test_spag_remembers_get(self):
+        self._test_spag_remembers_method_type('get')
+
+    def test_spag_remembers_put(self):
+        self._test_spag_remembers_method_type('put')
+
+    def test_spag_remembers_post(self):
+        self._test_spag_remembers_method_type('post')
+
+    def test_spag_remembers_patch(self):
+        self._test_spag_remembers_method_type('patch')
+
+    def test_spag_remembers_delete(self):
+        self._test_spag_remembers_method_type('delete')
+
+    def _test_spag_remembers_method_type(self, method):
+        filename = "{0}.yml".format(method)
+        filepath = os.path.join(SPAG_REMEMBERS_DIR, filename)
+
+        self.assertFalse(os.path.exists(filepath))
+
+        _, err, ret = run_spag(method, '/poo', '--data', '{"id": "1"}')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        self.assertTrue(os.path.exists(filepath))
