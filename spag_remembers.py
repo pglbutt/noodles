@@ -1,26 +1,16 @@
 import os
-import errno
 
 import spag_files
 import common
 
 import yaml
 
-def ensure_dir_exists(dir):
-    try:
-        os.makedirs(dir)
-    except OSError as e:
-        # if dir already exists, we're good to go
-        if e.errno == errno.EEXIST and os.path.isdir(dir):
-            return
-        raise common.ToughNoodles(str(e))
-
 class SpagRemembers(spag_files.SpagFilesLookup):
 
     DIR = './.spag/remembers/'
 
     def __init__(self):
-        ensure_dir_exists(self.DIR)
+        common.ensure_dir_exists(self.DIR)
         super(SpagRemembers, self).__init__(self.DIR)
 
     @classmethod
@@ -30,7 +20,7 @@ class SpagRemembers(spag_files.SpagFilesLookup):
         :param name: The filename, optionally without the .yml extension.
         :param resp: A requests response object
         """
-        ensure_dir_exists(cls.DIR)
+        common.ensure_dir_exists(cls.DIR)
 
         # always save the last request as 'last
         if name != 'last':
@@ -66,7 +56,7 @@ class SpagRemembers(spag_files.SpagFilesLookup):
         filedir = cls.DIR
         if len(path_parts) > 1:
             filedir = os.path.join(cls.DIR, *path_parts[:-1])
-        ensure_dir_exists(filedir)
+        common.ensure_dir_exists(filedir)
 
         filename = os.path.join(filedir, filename)
         with open(filename, 'w') as f:

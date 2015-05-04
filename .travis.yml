@@ -10,6 +10,7 @@ install:
   - "pip install -r requirements.txt"
 # command to run tests, e.g. python setup.py test
 script:
+  - "mkdir -p .spag/environments" # Eventually this can be replaced by a `spag init`
   - "pip install -r tests/test-requirements.txt"
   - "python tests/testapp.py &"
   - "nosetests -sv tests/"
