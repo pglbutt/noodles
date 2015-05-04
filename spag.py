@@ -10,6 +10,7 @@ import requests
 import yaml
 
 import spag_files
+import spag_template
 from spag_remembers import SpagRemembers
 from common import ToughNoodles, update
 
@@ -112,6 +113,7 @@ def show_response(resp, show_headers):
 def get(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP GET"""
     uri = endpoint + resource
+    uri = spag_template.untemplate(uri, shortcuts=True)
     r = requests.get(uri, headers=header, data=data)
     show_response(r, show_headers)
     SpagRemembers.remember_request('get', r)
@@ -122,6 +124,7 @@ def get(resource, endpoint=None, data=None, header=None, show_headers=False):
 def post(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP POST"""
     uri = endpoint + resource
+    uri = spag_template.untemplate(uri, shortcuts=True)
     r = requests.post(uri, data=data, headers=header)
     show_response(r, show_headers)
     SpagRemembers.remember_request('post', r)
@@ -132,6 +135,7 @@ def post(resource, endpoint=None, data=None, header=None, show_headers=False):
 def put(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP PUT"""
     uri = endpoint + resource
+    uri = spag_template.untemplate(uri, shortcuts=True)
     r = requests.put(uri, data=data, headers=header)
     show_response(r, show_headers)
     SpagRemembers.remember_request('put', r)
@@ -142,6 +146,7 @@ def put(resource, endpoint=None, data=None, header=None, show_headers=False):
 def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP PATCH"""
     uri = endpoint + resource
+    uri = spag_template.untemplate(uri, shortcuts=True)
     r = requests.patch(uri, data=data, headers=header)
     show_response(r, show_headers)
     SpagRemembers.remember_request('patch', r)
@@ -152,6 +157,7 @@ def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
 def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP DELETE"""
     uri = endpoint + resource
+    uri = spag_template.untemplate(uri, shortcuts=True)
     r = requests.delete(uri, data=data, headers=header)
     show_response(r, show_headers)
     SpagRemembers.remember_request('delete', r)
@@ -165,8 +171,10 @@ def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
               help='the dir to search for request files')
 @click.option('--show', required=False, is_flag=True,
               help='show request file, or show all request files if no name')
+@click.option('withs', '--with', '-w', metavar = '<with>', multiple=True,
+              default=[], help='specify values for vars in your request templates')
 def request(dir=None, name=None, endpoint=None, data=None, header=None,
-            show_headers=False, show=False):
+            show_headers=False, show=False, withs=None):
     try:
         if show and name is None:
             for x in spag_files.SpagFilesLookup(dir).get_file_list():
@@ -175,14 +183,21 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
             filename = spag_files.SpagFilesLookup(dir).get_path(name)
             filename = os.path.relpath(filename, '.')
             click.echo("File {0}".format(filename))
+            # TODO: show the untemplated version of the file here
             with click.open_file(filename, 'r') as f:
                 click.echo(f.read())
             # maybe should we still perform the request?
         else:
             filename = spag_files.SpagFilesLookup(dir).get_path(name)
 
+            with open(filename, 'r') as f:
+                raw = spag_template.untemplate(f.read(), withs)
+
             # load the request data into a dict
-            req = spag_files.load_file(filename)
+            # req = spag_files.load_file(filename)
+
+            req = yaml.safe_load(raw)
+
             kwargs = {
                 'url': endpoint + req['uri'],
                 'headers': header or req.get('headers', {})

@@ -42,7 +42,7 @@ class SpagRemembers(spag_files.SpagFilesLookup):
         result['response'] = {
             'status': resp.status_code,
             'headers': dict(resp.headers),
-            'body': resp.request.body,
+            'body': resp.text,
         }
 
         path_parts = common.split_path(name)
