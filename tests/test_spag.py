@@ -42,50 +42,12 @@ class BaseTest(unittest.TestCase):
     def setUp(self):
         super(BaseTest, self).setUp()
         run_spag('get', '/clear', '-e', ENDPOINT)
-        run_spag('clear')
+        run_spag('env', 'unset', '.', '--everything')
         self._rm_remembers_dir()
 
     def tearDown(self):
         self._rm_remembers_dir()
         super(BaseTest, self).tearDown()
-
-
-class TestEnvironment(BaseTest):
-
-    def test_spag_endpoint_crud(self):
-        out, err, ret = run_spag('set', 'abcdefgh')
-        self.assertEqual(out, 'endpoint: abcdefgh\n')
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-
-        out, err, ret = run_spag('show')
-        self.assertEqual(out, 'endpoint: abcdefgh\n')
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-
-        out, err, ret = run_spag('clear')
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-
-        out, err, ret = run_spag('show')
-        self.assertEqual(out, '')
-        self.assertEqual(err, 'Endpoint not set\n')
-        self.assertNotEqual(ret, 0)
-
-    def test_spag_set_environment_failure(self):
-        out, err, ret = run_spag('set')
-        self.assertEqual(err, 'Error: You must provide something to set!\n')
-        self.assertNotEqual(ret, 0)
-
-    def test_set_endoint_and_header(self):
-        out, err, ret = run_spag('set', ENDPOINT, '-H', 'pglbutt:pglbutt')
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-        self.assertIn('headers', out)
-        out, err, ret = run_spag('get', '/headers')
-        self.assertEqual(ret, 0)
-        self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
-
 
 class TestHeaders(BaseTest):
 
@@ -126,7 +88,7 @@ class TestGet(BaseTest):
     def test_get_no_endpoint(self):
         out, err, ret = run_spag('get', '/auth')
         self.assertNotEqual(ret, 0)
-        self.assertEqual(err, 'Endpoint not set\n')
+        self.assertEqual(err, 'Endpoint not set\n\n')
 
     def test_get_supply_endpoint(self):
         out, err, ret = run_spag('get', '/auth', '-e', ENDPOINT)
@@ -134,8 +96,8 @@ class TestGet(BaseTest):
         self.assertEqual(json.loads(out), {"token": "abcde"})
 
     def test_get_presupply_endpoint(self):
-        out, err, ret = run_spag('set', ENDPOINT)
-        self.assertEqual(out, 'endpoint: {0}\n'.format(ENDPOINT))
+        out, err, ret = run_spag('env', 'set', ENDPOINT)
+        self.assertEqual(out, 'endpoint: {0}\n\n'.format(ENDPOINT))
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         out, err, ret = run_spag('get', '/things')
@@ -146,9 +108,9 @@ class TestGet(BaseTest):
 class TestPost(BaseTest):
 
     def test_spag_post(self):
-        run_spag('set', ENDPOINT)
+        run_spag('env', 'set', ENDPOINT)
         out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
-                                 '-H', 'content-type: application/json')
+                                 '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
         self.assertEquals(json.loads(out), {"id": "a"})
         self.assertEquals(err, '')
@@ -156,14 +118,14 @@ class TestPost(BaseTest):
 class TestPut(BaseTest):
 
     def test_spag_put(self):
-        run_spag('set', ENDPOINT)
+        run_spag('env', 'set', ENDPOINT)
         out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
-                                 '-H', 'content-type: application/json')
+                                 '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
         self.assertEquals(json.loads(out), {"id": "a"})
         self.assertEquals(err, '')
         out, err, ret = run_spag('put', '/things/a', '--data', '{"id": "b"}',
-                                 '-H', 'content-type: application/json')
+                                 '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
         self.assertEquals(json.loads(out), {"id": "b"})
         self.assertEquals(err, '')
@@ -171,14 +133,14 @@ class TestPut(BaseTest):
 class TestPatch(BaseTest):
 
     def test_spag_patch(self):
-        run_spag('set', ENDPOINT)
+        run_spag('env', 'set', ENDPOINT)
         out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
-                                 '-H', 'content-type: application/json')
+                                 '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
         self.assertEquals(json.loads(out), {"id": "a"})
         self.assertEquals(err, '')
         out, err, ret = run_spag('patch', '/things/a', '--data', '{"id": "b"}',
-                                 '-H', 'content-type: application/json')
+                                 '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
         self.assertEquals(json.loads(out), {"id": "b"})
         self.assertEquals(err, '')
@@ -186,14 +148,14 @@ class TestPatch(BaseTest):
 class TestDelete(BaseTest):
 
     def test_spag_delete(self):
-        run_spag('set', ENDPOINT)
+        run_spag('env', 'set', ENDPOINT)
         out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
-                                 '-H', 'content-type: application/json')
+                                 '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
         self.assertEquals(json.loads(out), {"id": "a"})
         self.assertEquals(err, '')
         out, err, ret = run_spag('delete', '/things/a', '--data', '{"id": "b"}',
-                                 '-H', 'content-type: application/json')
+                                 '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
         self.assertEquals(out, '\n')
         self.assertEquals(err, '')
@@ -206,7 +168,8 @@ class TestSpagFiles(BaseTest):
 
     def setUp(self):
         super(TestSpagFiles, self).setUp()
-        run_spag('set', ENDPOINT)
+        run_spag('env', 'set', ENDPOINT)
+        run_spag('env', 'set', '-E', 'dir=%s' % RESOURCES_DIR)
         self.table = spag_files.SpagFilesLookup(RESOURCES_DIR)
 
     def test_spag_lookup(self):
@@ -236,14 +199,13 @@ class TestSpagFiles(BaseTest):
 
     def test_spag_request_get(self):
         for name in ('auth.yml', 'auth'):
-            out, err, ret = run_spag('request', name, '--dir', RESOURCES_DIR)
-            self.assertEqual(err, '')
-            self.assertEqual(json.loads(out), {"token": "abcde"})
+            out, err, ret = run_spag('request', name)
             self.assertEqual(ret, 0)
+            self.assertEqual(json.loads(out), {"token": "abcde"})
+            self.assertEqual(err, '')
 
     def test_spag_request_post(self):
-        out, err, ret = run_spag('request', 'v2/post_thing.yml',
-                                 '--dir', RESOURCES_DIR)
+        out, err, ret = run_spag('request', 'v2/post_thing.yml')
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"id": "c"})
         self.assertEqual(err, '')
@@ -251,11 +213,10 @@ class TestSpagFiles(BaseTest):
     def test_spag_request_patch(self):
         # stuff in patch_thing.yml needs to match stuff here
         _, _, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
-                              '-H', 'content-type: application/json')
+                              '-H', 'content-type:application/json')
         self.assertEqual(ret, 0)
 
-        out, err, ret = run_spag('request', 'patch_thing.yml',
-                                 '--dir', RESOURCES_DIR)
+        out, err, ret = run_spag('request', 'patch_thing.yml')
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"id": "c"})
         self.assertEqual(err, '')
@@ -263,10 +224,9 @@ class TestSpagFiles(BaseTest):
     def test_spag_request_delete(self):
         for name in ('delete_thing.yml', 'delete_thing'):
             _, _, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
-                                  '-H', 'content-type: application/json')
+                                  '-H', 'content-type:application/json')
             self.assertEqual(ret, 0)
-
-            out, err, ret = run_spag('request', name, '--dir', RESOURCES_DIR)
+            out, err, ret = run_spag('request', name)
             self.assertEqual(ret, 0)
             self.assertEqual(out, '\n')
             self.assertEqual(err, '')
@@ -274,22 +234,20 @@ class TestSpagFiles(BaseTest):
     def test_spag_request_data_option_overrides(self):
         out, err, ret = run_spag('request', 'v2/post_thing.yml',
                                  '--data', '{"id": "xyz"}',
-                                 '--dir', RESOURCES_DIR,
-                                 '-H', 'content-type: application/json')
+                                 '-H', 'content-type:application/json')
         self.assertEqual(json.loads(out), {"id": "xyz"})
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
     def test_spag_request_headers_override(self):
         out, err, ret = run_spag('request', 'headers.yml',
-                                 '--dir', RESOURCES_DIR,
-                                 '-H', 'Hello: abcde')
+                                 '-H', 'Hello:abcde')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"Hello": "abcde"})
         self.assertEqual(ret, 0)
 
     def test_spag_show_requests(self):
-        out, err, ret = run_spag('request', '--show', '--dir', RESOURCES_DIR)
+        out, err, ret = run_spag('request', '--show')
         def parse(text):
             return list(sorted(text.split()))
         expected = """
@@ -307,8 +265,7 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(ret, 0)
 
     def test_spag_show_single_request(self):
-        out, err, ret = run_spag('request', 'auth.yml', '--show',
-                                 '--dir', RESOURCES_DIR)
+        out, err, ret = run_spag('request', 'auth.yml', '--show')
         self.assertEqual(err, '')
         self.assertEqual(out.strip(),
             textwrap.dedent("""
@@ -320,12 +277,65 @@ class TestSpagFiles(BaseTest):
             """).strip())
         self.assertEqual(ret, 0)
 
+    def test_spag_environment_crud(self):
+        out, err, ret = run_spag('env', 'set', 'abcdefgh')
+        self.assertIn('endpoint: abcdefgh', out)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('env', 'show')
+        self.assertIn('endpoint: abcdefgh', out)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('env', 'unset', 'endpoint', '--everything')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('env', 'show')
+        self.assertEqual(out, '{}\n\n')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+    def test_spag_environment_activate_deactivate(self):
+        out, err, ret = run_spag('env', 'unset', 'endpoint', '--everything')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('env', 'set', 'abcdefgh')
+        self.assertIn('endpoint: abcdefgh', out)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('env', 'deactivate')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('env', 'show')
+        self.assertIn('endpoint: abcdefgh', out)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+    def test_spag_set_environment_failure(self):
+        out, err, ret = run_spag('env', 'set')
+        self.assertEqual(err, 'Error: You must provide something to set!\n')
+        self.assertNotEqual(ret, 0)
+
+    def test_set_endoint_and_header(self):
+        out, err, ret = run_spag('env', 'set', ENDPOINT, '-H', 'pglbutt:pglbutt')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertIn('headers', out)
+        out, err, ret = run_spag('get', '/headers')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
+
 
 class TestSpagRemembers(BaseTest):
 
     def setUp(self):
         super(TestSpagRemembers, self).setUp()
-        run_spag('set', ENDPOINT)
+        run_spag('env', 'set', ENDPOINT)
 
     def test_spag_remembers_request(self):
         auth_file = os.path.join(SPAG_REMEMBERS_DIR, 'v2/post_thing.yml')

@@ -11,49 +11,20 @@ import yaml
 
 import spag_files
 from spag_remembers import SpagRemembers
-from common import ToughNoodles
-
-class Environment(object):
-
-    ENV_FILE = '.spag.env'
-    @classmethod
-    def get(cls):
-        if os.path.exists(cls.ENV_FILE):
-            with click.open_file(cls.ENV_FILE, 'r') as f:
-                return yaml.load(f)
-        else:
-            raise ToughNoodles("Endpoint not set")
-
-    @classmethod
-    def set(cls, **kwargs):
-        # This ignores any arguments that are set to None
-        kwargs = {key: value for key, value in kwargs.items() if value is not None}
-
-        if os.path.exists(cls.ENV_FILE):
-            f = click.open_file(cls.ENV_FILE, 'r')
-            data = yaml.load(f)
-            data.update(kwargs)
-        else:
-            data = kwargs
-
-        f = click.open_file(cls.ENV_FILE, 'w+')
-        yaml.safe_dump(data, f, default_flow_style=False)
-        return data
-
-    @classmethod
-    def clear(cls):
-        if os.path.exists(cls.ENV_FILE):
-            os.remove(cls.ENV_FILE)
+from common import ToughNoodles, update
 
 def determine_endpoint(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if kwargs['endpoint'] is None:
             try:
-                endpoint = Environment.get()['endpoint']
+                endpoint = spag_files.SpagEnvironment.get_env()['endpoint']
                 kwargs['endpoint'] = endpoint
             except ToughNoodles as e:
                 click.echo(str(e), err=True)
+                sys.exit(1)
+            except KeyError:
+                click.echo('Endpoint not set\n', err=True)
                 sys.exit(1)
         return f(*args, **kwargs)
     return wrapper
@@ -64,7 +35,7 @@ def prepare_headers(f):
         header = kwargs['header']
         if header is None or header == ():
             try:
-                headers = Environment.get()['headers']
+                headers = spag_files.SpagEnvironment.get_env()['headers']
                 kwargs['header'] = headers
             except ToughNoodles:
                 kwargs['header'] = None
@@ -73,11 +44,35 @@ def prepare_headers(f):
         else:
             try:
                 # Headers come in as a tuple ('Header:Content', 'Header:Content')
-                kwargs['header'] = {key: value for (key, value) in [h.split(':') for h in header]}
+                env = spag_files.SpagEnvironment.get_env()
+                supplied_headers = {key: value.strip() for (key, value) in [h.split(':') for h in header]}
+                if 'headers' in env:
+                    headers = update(env['headers'], supplied_headers)
+                else:
+                    headers = supplied_headers
+                kwargs['header'] = headers
             except ValueError:
                 click.echo("Error: Invalid header!", err=True)
                 sys.exit(1)
+            except KeyError:
+                kwargs['header'] = {key: value.strip() for (key, value) in [h.split(':') for h in header]}
 
+        return f(*args, **kwargs)
+    return wrapper
+
+def request_dir(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if kwargs['dir'] is None:
+            try:
+                d = spag_files.SpagEnvironment.get_env()['envvars']['dir']
+                kwargs['dir'] = d
+            except ToughNoodles as e:
+                click.echo(str(e), err=True)
+                sys.exit(1)
+            except KeyError:
+                click.echo('Request directory not set\n', err=True)
+                sys.exit(1)
         return f(*args, **kwargs)
     return wrapper
 
@@ -104,48 +99,6 @@ def cli():
 
     This is the spag http client. It's spagtacular.
     """
-
-@cli.command('set')
-@click.argument('endpoint', default=None, required=False)
-@click.option('--header', '-H', metavar = '<header>', multiple=True,
-              default=None, help='Header in the form key:value')
-@prepare_headers
-def spag_set(endpoint=None, header=None):
-    """Set the endpoint and/or headers."""
-    if endpoint is None and header == None:
-        click.echo("Error: You must provide something to set!", err=True)
-        sys.exit(1)
-
-    # This should be expandable to future environment variables
-    kwargs = {'endpoint': endpoint, 'headers': header}
-    try:
-        e = Environment.set(**kwargs)
-        for key, value in e.items():
-            click.echo("%s: %s" % (key, value))
-    except ToughNoodles as e:
-        click.echo(str(e), err=True)
-        sys.exit(1)
-
-@cli.command('show')
-def spag_show():
-    """Show the endpoint."""
-    try:
-        env = Environment.get()
-        for key, value in env.items():
-            click.echo("%s: %s" % (key, value))
-    except ToughNoodles as e:
-        click.echo(str(e), err=True)
-        sys.exit(1)
-
-@cli.command('clear')
-def spag_clear():
-    """Clear the endpoint."""
-    try:
-        Environment.clear()
-        click.echo("Endpoint cleared.")
-    except ToughNoodles as e:
-        click.echo(str(e), err=True)
-        sys.exit(1)
 
 def show_response(resp, show_headers):
     if show_headers:
@@ -207,12 +160,12 @@ def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
 @cli.command('request')
 @click.argument('name', required=False)
 @common_request_args
-# TODO: set dir in the environment, and then required=False
-@click.option('--dir', required=True,
+@request_dir
+@click.option('--dir', required=False,
               help='the dir to search for request files')
 @click.option('--show', required=False, is_flag=True,
               help='show request file, or show all request files if no name')
-def request(dir, name=None, endpoint=None, data=None, header=None,
+def request(dir=None, name=None, endpoint=None, data=None, header=None,
             show_headers=False, show=False):
     try:
         if show and name is None:
@@ -246,6 +199,79 @@ def request(dir, name=None, endpoint=None, data=None, header=None,
             show_response(resp, show_headers)
 
             SpagRemembers.remember_request(name, resp)
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+
+@cli.group('env')
+def env():
+    """Spag environments"""
+
+@env.command('activate')
+@click.argument('envname', required=True)
+def env_activate(envname):
+    try:
+        spag_files.SpagEnvironment().activate(envname)
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+    click.echo('Environment %s activated' % envname)
+
+@env.command('deactivate')
+def env_deactivate():
+    try:
+        spag_files.SpagEnvironment().deactivate()
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+    click.echo('Deactivated')
+
+@env.command('show')
+@click.argument('envname', required=False)
+def env_show(envname=None):
+    try:
+        env = spag_files.SpagEnvironment().get_env(envname)
+        click.echo(yaml.safe_dump(env, default_flow_style=False))
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+
+@env.command('set')
+@click.argument('endpoint', default=None, required=False)
+@click.option('--header', '-H', multiple=True,
+              default=None, help='Header in the form key:value')
+@click.option('--envvars', '-E', multiple=True,
+              default=None, help='Environment variables in the form key=value')
+def env_set(endpoint=None, header=None, envvars=None):
+    """Set the endpoint and/or headers."""
+    if endpoint is None and header == () and envvars == ():
+        click.echo("Error: You must provide something to set!", err=True)
+        sys.exit(1)
+
+    # Switch envvars, headers from Tuples to dict
+    envvars = {key: value for (key, value) in [e.split('=') for e in envvars]}
+    header = {key: value.strip() for (key, value) in [h.split(':') for h in header]}
+
+    # Determine which args should be passed to a dict-style update function
+    kwargs = {'endpoint': endpoint, 'headers': header, 'envvars': envvars}
+    for arg in ['endpoint', 'headers', 'envvars']:
+        if not kwargs[arg]:
+            kwargs.pop(arg)
+
+    try:
+        env = spag_files.SpagEnvironment().set_env(kwargs)
+        click.echo(yaml.safe_dump(env, default_flow_style=False))
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+
+@env.command('unset')
+@click.argument('resource', required=True)
+@click.option('--everything', is_flag=True, default=False)
+def env_unset(resource, everything=False):
+    try:
+        env = spag_files.SpagEnvironment().unset_env(resource, everything)
+        click.echo(yaml.safe_dump(env, default_flow_style=False))
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)

@@ -1,7 +1,6 @@
 import os
 import yaml
-
-from common import ToughNoodles, split_path
+from common import ToughNoodles, split_path, update, ensure_dir_exists
 
 
 def load_file(filename):
@@ -107,3 +106,115 @@ class SpagFilesLookup(dict):
         return [os.path.relpath(path, '.')
                 for paths in self.values()
                 for path in paths]
+
+class SpagEnvironment(object):
+
+    SPAG_ENV_DIR = './.spag/environments/'
+    DEFAULT_ENV_NAME = 'default.yml'
+
+    @classmethod
+    def activate(cls, envname):
+        ensure_dir_exists(cls.SPAG_ENV_DIR)
+        filename = os.path.join(cls.SPAG_ENV_DIR, envname + '.yml')
+        try:
+            env = load_file(filename)
+        except Exception as e:
+            raise ToughNoodles(e.message)
+        active = os.path.join(cls.SPAG_ENV_DIR, 'active')
+        f = open(active, 'w')
+        f.write(filename)
+
+    @classmethod
+    def deactivate(cls):
+        try:
+            os.remove(cls.SPAG_ENV_DIR + 'active')
+        except OSError:
+            pass
+
+    @classmethod
+    def get_env(cls, envname=None):
+        if envname is not None:
+            filename = os.path.join(cls.SPAG_ENV_DIR, envname + '.yml')
+            try:
+                return load_file(filename)
+            except Exception as e:
+                raise ToughNoodles(e.msg)
+
+        activename = os.path.join(cls.SPAG_ENV_DIR, 'active')
+        if not os.path.exists(activename):
+            cls._activate_default_env()
+
+        f = open(activename, 'r')
+        envname = os.path.join(f.read())
+        return load_file(envname)
+
+
+    @classmethod
+    def set_env(cls, updates):
+        activename = os.path.join(cls.SPAG_ENV_DIR, 'active')
+        if not os.path.exists(activename):
+            cls._activate_default_env()
+
+        f = open(activename, 'r')
+        envname = f.read()
+        current = load_file(envname)
+        # Do a nested dictionary update
+        current = update(current, updates)
+        f = open(envname, 'w+')
+        yaml.safe_dump(current, f, default_flow_style=False)
+        return current
+
+    @classmethod
+    def unset_env(cls, var, everything=False):
+        activename = os.path.join(cls.SPAG_ENV_DIR, 'active')
+        if not os.path.exists(activename):
+            cls._activate_default_env()
+
+        f = open(activename, 'r')
+        envname = f.read()
+        current = load_file(envname)
+
+        if everything is True:
+            f = open(envname, 'w+')
+            yaml.safe_dump({}, f, default_flow_style=False)
+            return {}
+        else:
+            unset = cls._search_and_delete(current, var)
+            if unset is None:
+                raise ToughNoodles('Could not find anything in environment by that name')
+
+            f = open(envname, 'w+')
+            yaml.safe_dump(unset, f, default_flow_style=False)
+
+            return unset
+
+    @classmethod
+    def _search_and_delete(cls, env, name):
+        if name in env:
+            del env[name]
+
+        if 'headers' in env:
+            if name in env['headers']:
+                del env['headers'][name]
+
+        if 'envvars' in env:
+            if name in env['envvars']:
+                del env['envvars'][name]
+
+        return env
+
+    @classmethod
+    def _activate_default_env(cls):
+        ensure_dir_exists(cls.SPAG_ENV_DIR)
+        activename = os.path.join(cls.SPAG_ENV_DIR, 'active')
+        if not os.path.exists(activename):
+            envfile = os.path.join(cls.SPAG_ENV_DIR, cls.DEFAULT_ENV_NAME)
+            if not os.path.exists(envfile):
+                # Init the default env
+                f = open(envfile, 'w+')
+                yaml.safe_dump({}, f, default_flow_style=False)
+                f.close()
+            # Activate
+            f = open(activename, 'w+')
+            f.write(envfile)
+            f.close()
