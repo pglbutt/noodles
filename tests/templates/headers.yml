@@ -1,0 +1,6 @@
+method: GET
+uri: /headers
+headers:
+    hello: {{hello}}
+    body-id: {{body_id, last.response.body.id}}
+    thingy: {{thingy, thingy2}}
