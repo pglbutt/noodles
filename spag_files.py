@@ -115,11 +115,13 @@ class SpagEnvironment(object):
     @classmethod
     def activate(cls, envname):
         ensure_dir_exists(cls.SPAG_ENV_DIR)
+
         filename = os.path.join(cls.SPAG_ENV_DIR, envname + '.yml')
         try:
             env = load_file(filename)
         except Exception as e:
             raise ToughNoodles(e.message)
+
         active = os.path.join(cls.SPAG_ENV_DIR, 'active')
         f = open(active, 'w')
         f.write(filename)
@@ -133,6 +135,7 @@ class SpagEnvironment(object):
 
     @classmethod
     def get_env(cls, envname=None):
+        # Viewing an inactive environment
         if envname is not None:
             filename = os.path.join(cls.SPAG_ENV_DIR, envname + '.yml')
             try:
@@ -140,10 +143,12 @@ class SpagEnvironment(object):
             except Exception as e:
                 raise ToughNoodles(e.msg)
 
+        # If there is no environment, activate the default one
         activename = os.path.join(cls.SPAG_ENV_DIR, 'active')
         if not os.path.exists(activename):
             cls._activate_default_env()
 
+        # Load up and return the active environment
         f = open(activename, 'r')
         envname = os.path.join(f.read())
         return load_file(envname)
@@ -152,13 +157,15 @@ class SpagEnvironment(object):
     @classmethod
     def set_env(cls, updates):
         activename = os.path.join(cls.SPAG_ENV_DIR, 'active')
+        # If there is no active environment, use the default one
         if not os.path.exists(activename):
             cls._activate_default_env()
 
         f = open(activename, 'r')
         envname = f.read()
         current = load_file(envname)
-        # Do a nested dictionary update
+
+        # Do a nested dictionary update, write and return the env
         current = update(current, updates)
         f = open(envname, 'w+')
         yaml.safe_dump(current, f, default_flow_style=False)
@@ -175,10 +182,15 @@ class SpagEnvironment(object):
         current = load_file(envname)
 
         if everything is True:
+            # If we're unsetting everything, just start over
             f = open(envname, 'w+')
             yaml.safe_dump({}, f, default_flow_style=False)
             return {}
         else:
+            if var is None:
+                return current
+
+            # Attempt to find the variable and del it
             unset = cls._search_and_delete(current, var)
             if unset is None:
                 raise ToughNoodles('Could not find anything in environment by that name')
@@ -207,6 +219,7 @@ class SpagEnvironment(object):
     def _activate_default_env(cls):
         ensure_dir_exists(cls.SPAG_ENV_DIR)
         activename = os.path.join(cls.SPAG_ENV_DIR, 'active')
+
         if not os.path.exists(activename):
             envfile = os.path.join(cls.SPAG_ENV_DIR, cls.DEFAULT_ENV_NAME)
             if not os.path.exists(envfile):
