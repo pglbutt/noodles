@@ -19,7 +19,7 @@ def determine_endpoint(f):
     def wrapper(*args, **kwargs):
         if kwargs['endpoint'] is None:
             try:
-                endpoint = spag_files.SpagEnvironment.get_env()['endpoint']
+                endpoint = spag_files.SpagEnvironment.get_env()['envvars']['endpoint']
                 kwargs['endpoint'] = endpoint
             except ToughNoodles as e:
                 click.echo(str(e), err=True)
@@ -252,14 +252,13 @@ def env_show(envname=None):
         sys.exit(1)
 
 @env.command('set')
-@click.argument('endpoint', default=None, required=False)
 @click.option('--header', '-H', multiple=True,
               default=None, help='Header in the form key:value')
 @click.option('--envvars', '-E', multiple=True,
               default=None, help='Environment variables in the form key=value')
-def env_set(endpoint=None, header=None, envvars=None):
-    """Set the endpoint and/or headers."""
-    if endpoint is None and header == () and envvars == ():
+def env_set(header=None, envvars=None):
+    """Set the environment variables and/or headers."""
+    if header == () and envvars == ():
         click.echo("Error: You must provide something to set!", err=True)
         sys.exit(1)
 
@@ -268,8 +267,8 @@ def env_set(endpoint=None, header=None, envvars=None):
     header = {key: value.strip() for (key, value) in [h.split(':') for h in header]}
 
     # Determine which args should be passed to a dict-style update function
-    kwargs = {'endpoint': endpoint, 'headers': header, 'envvars': envvars}
-    for arg in ['endpoint', 'headers', 'envvars']:
+    kwargs = {'headers': header, 'envvars': envvars}
+    for arg in ['headers', 'envvars']:
         if not kwargs[arg]:
             kwargs.pop(arg)
 
@@ -281,9 +280,9 @@ def env_set(endpoint=None, header=None, envvars=None):
         sys.exit(1)
 
 @env.command('unset')
-@click.argument('resource', required=True)
+@click.argument('resource', required=False)
 @click.option('--everything', is_flag=True, default=False)
-def env_unset(resource, everything=False):
+def env_unset(resource=None, everything=False):
     try:
         env = spag_files.SpagEnvironment().unset_env(resource, everything)
         click.echo(yaml.safe_dump(env, default_flow_style=False))
