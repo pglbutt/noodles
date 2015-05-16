@@ -12,7 +12,7 @@ def determine_endpoint(f):
         env = spag_files.SpagEnvironment.get_env()
         if kwargs['endpoint'] is None:
             try:
-                endpoint = env['envvars']['endpoint']
+                endpoint = env['endpoint']
                 kwargs['endpoint'] = endpoint
             except ToughNoodles as e:
                 click.echo(str(e), err=True)
@@ -61,7 +61,7 @@ def request_dir(f):
 
         if kwargs['dir'] is None:
             try:
-                d = env['envvars']['dir']
+                d = env['dir']
                 kwargs['dir'] = d
             except ToughNoodles as e:
                 click.echo(str(e), err=True)
