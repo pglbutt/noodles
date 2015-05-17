@@ -1,0 +1,5 @@
+method: GET
+uri: /things/{{thing_id, other_thing_id : mydefaultid}}
+headers:
+    Content-Type: "application/json"
+    Accept: "application/json"

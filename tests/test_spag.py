@@ -590,3 +590,14 @@ class TestSpagHistory(BaseTest):
         self.assertEqual(err, '')
         self.assertIn('POST %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
+
+    def test_spag_template_default(self):
+        _, err, ret = run_spag('request', 'template/post_thing',
+                               '--with', 'thing_id=mydefaultid')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('request', 'template/get_default')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out), {"id": "mydefaultid"})
+        self.assertEqual(ret, 0)
