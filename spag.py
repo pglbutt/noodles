@@ -11,7 +11,7 @@ import yaml
 
 import spag_files
 import spag_template
-from spag_remembers import SpagRemembers
+from spag_remembers import SpagRemembers, SpagHistory
 from common import ToughNoodles, update
 import decorators as dec
 
@@ -40,6 +40,7 @@ def get(resource, endpoint=None, data=None, header=None, show_headers=False):
     r = requests.get(uri, headers=header, data=data)
     show_response(r, show_headers)
     SpagRemembers.remember_request('get', r)
+    SpagHistory.append(r)
 
 @cli.command('post')
 @click.argument('resource')
@@ -51,6 +52,7 @@ def post(resource, endpoint=None, data=None, header=None, show_headers=False):
     r = requests.post(uri, data=data, headers=header)
     show_response(r, show_headers)
     SpagRemembers.remember_request('post', r)
+    SpagHistory.append(r)
 
 @cli.command('put')
 @click.argument('resource')
@@ -62,6 +64,7 @@ def put(resource, endpoint=None, data=None, header=None, show_headers=False):
     r = requests.put(uri, data=data, headers=header)
     show_response(r, show_headers)
     SpagRemembers.remember_request('put', r)
+    SpagHistory.append(r)
 
 @cli.command('patch')
 @click.argument('resource')
@@ -73,6 +76,7 @@ def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
     r = requests.patch(uri, data=data, headers=header)
     show_response(r, show_headers)
     SpagRemembers.remember_request('patch', r)
+    SpagHistory.append(r)
 
 @cli.command('delete')
 @click.argument('resource')
@@ -84,6 +88,7 @@ def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
     r = requests.delete(uri, data=data, headers=header)
     show_response(r, show_headers)
     SpagRemembers.remember_request('delete', r)
+    SpagHistory.append(r)
 
 
 @cli.command('request')
@@ -116,9 +121,6 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
             with open(filename, 'r') as f:
                 raw = spag_template.untemplate(f.read(), withs)
 
-            # load the request data into a dict
-            # req = spag_files.load_file(filename)
-
             req = yaml.safe_load(raw)
 
             kwargs = {
@@ -135,8 +137,8 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
             method = req['method'].lower()
             resp = getattr(requests, method)(**kwargs)
             show_response(resp, show_headers)
-
             SpagRemembers.remember_request(name, resp)
+            SpagHistory.append(resp)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
@@ -205,6 +207,28 @@ def env_unset(resource=None, everything=False):
     try:
         env = spag_files.SpagEnvironment().unset_env(resource, everything)
         click.echo(yaml.safe_dump(env, default_flow_style=False))
+    except ToughNoodles as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+
+@cli.group('history', invoke_without_command=True)
+@click.pass_context
+def history(ctx):
+    """Show request history"""
+    # do this on `spag history`
+    # don't do this on `spag history <cmd>`
+    if ctx.invoked_subcommand is None:
+        try:
+            SpagHistory.list()
+        except ToughNoodles as e:
+            click.echo(str(e), err=True)
+            sys.exit(1)
+
+@history.command('show')
+@click.argument('index', required=True)
+def show_history_entry(index):
+    try:
+        SpagHistory.show(index)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
