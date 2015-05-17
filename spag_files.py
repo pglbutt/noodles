@@ -103,9 +103,9 @@ class SpagFilesLookup(dict):
             return matches[0]
 
     def get_file_list(self):
-        return [os.path.relpath(path, '.')
-                for paths in self.values()
-                for path in paths]
+        return list(sorted(os.path.relpath(path, '.')
+                           for paths in self.values()
+                           for path in paths))
 
 class SpagEnvironment(object):
 
