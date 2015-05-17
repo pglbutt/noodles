@@ -250,7 +250,7 @@ class TestSpagFiles(BaseTest):
     def test_spag_show_requests(self):
         out, err, ret = run_spag('request', '--show')
         def parse(text):
-            return list(sorted(text.split()))
+            return text.split()
         expected = """
             tests/resources/auth.yml
             tests/resources/delete_thing.yml
