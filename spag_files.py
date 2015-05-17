@@ -46,7 +46,7 @@ class SpagFilesLookup(dict):
         # convert to absolute paths and use sets to handle duplicates
         absdir = os.path.abspath(dir)
         if not os.path.exists(absdir):
-            raise ToughNoodles("Directory %s not found")
+            raise ToughNoodles("Requests directory %s not found" % absdir)
 
         self.dirs.add(absdir)
 
