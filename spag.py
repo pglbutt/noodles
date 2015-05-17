@@ -175,11 +175,10 @@ def env_show(envname=None):
         sys.exit(1)
 
 @env.command('set')
+@click.argument('envvars', nargs=-1, required=False)
 @click.option('--header', '-H', multiple=True,
               default=None, help='Header in the form key:value')
-@click.option('--envvars', '-E', multiple=True,
-              default=None, help='Environment variables in the form key=value')
-def env_set(header=None, envvars=None):
+def env_set(envvars=None, header=None):
     """Set the environment variables and/or headers."""
     if header == () and envvars == ():
         click.echo("Error: You must provide something to set!", err=True)
@@ -189,14 +188,11 @@ def env_set(header=None, envvars=None):
     envvars = {key: value for (key, value) in [e.split('=') for e in envvars]}
     header = {key: value.strip() for (key, value) in [h.split(':') for h in header]}
 
-    # Determine which args should be passed to a dict-style update function
-    kwargs = {'headers': header, 'envvars': envvars}
-    for arg in ['headers', 'envvars']:
-        if not kwargs[arg]:
-            kwargs.pop(arg)
+    if header:
+        envvars['headers'] = header
 
     try:
-        env = spag_files.SpagEnvironment().set_env(kwargs)
+        env = spag_files.SpagEnvironment().set_env(envvars)
         click.echo(yaml.safe_dump(env, default_flow_style=False))
     except ToughNoodles as e:
         click.echo(str(e), err=True)

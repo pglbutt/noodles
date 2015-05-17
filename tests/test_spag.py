@@ -97,8 +97,8 @@ class TestGet(BaseTest):
         self.assertEqual(json.loads(out), {"token": "abcde"})
 
     def test_get_presupply_endpoint(self):
-        out, err, ret = run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT)
-        self.assertEqual(out, 'envvars:\n  endpoint: {0}\n\n'.format(ENDPOINT))
+        out, err, ret = run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
+        self.assertEqual(out, 'endpoint: {0}\n\n'.format(ENDPOINT))
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         out, err, ret = run_spag('get', '/things')
@@ -109,7 +109,7 @@ class TestGet(BaseTest):
 class TestPost(BaseTest):
 
     def test_spag_post(self):
-        run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT)
+        run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
         out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
                                  '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
@@ -119,7 +119,7 @@ class TestPost(BaseTest):
 class TestPut(BaseTest):
 
     def test_spag_put(self):
-        run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT)
+        run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
         out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
                                  '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
@@ -134,7 +134,7 @@ class TestPut(BaseTest):
 class TestPatch(BaseTest):
 
     def test_spag_patch(self):
-        run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT)
+        run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
         out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
                                  '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
@@ -149,7 +149,7 @@ class TestPatch(BaseTest):
 class TestDelete(BaseTest):
 
     def test_spag_delete(self):
-        run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT)
+        run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
         out, err, ret = run_spag('post', '/things', '--data', '{"id": "a"}',
                                  '-H', 'content-type:application/json')
         self.assertEquals(ret, 0)
@@ -169,8 +169,8 @@ class TestSpagFiles(BaseTest):
 
     def setUp(self):
         super(TestSpagFiles, self).setUp()
-        run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT)
-        run_spag('env', 'set', '-E', 'dir=%s' % RESOURCES_DIR)
+        run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
+        run_spag('env', 'set', 'dir=%s' % RESOURCES_DIR)
         self.table = spag_files.SpagFilesLookup(RESOURCES_DIR)
 
     def test_spag_lookup(self):
@@ -279,7 +279,7 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(ret, 0)
 
     def test_spag_environment_crud(self):
-        out, err, ret = run_spag('env', 'set', '-E', 'endpoint=abcdefgh')
+        out, err, ret = run_spag('env', 'set', 'endpoint=abcdefgh')
         self.assertIn('endpoint: abcdefgh', out)
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
@@ -303,7 +303,7 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-        out, err, ret = run_spag('env', 'set', '-E', 'endpoint=abcdefgh')
+        out, err, ret = run_spag('env', 'set', 'endpoint=abcdefgh')
         self.assertIn('endpoint: abcdefgh', out)
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
@@ -323,7 +323,7 @@ class TestSpagFiles(BaseTest):
         self.assertNotEqual(ret, 0)
 
     def test_set_endoint_and_header(self):
-        out, err, ret = run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT, '-H', 'pglbutt:pglbutt')
+        out, err, ret = run_spag('env', 'set', 'endpoint=%s' % ENDPOINT, '-H', 'pglbutt:pglbutt')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertIn('headers', out)
@@ -336,7 +336,7 @@ class TestSpagRemembers(BaseTest):
 
     def setUp(self):
         super(TestSpagRemembers, self).setUp()
-        run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT)
+        run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
 
     def test_spag_remembers_request(self):
         auth_file = os.path.join(SPAG_REMEMBERS_DIR, 'v2/post_thing.yml')
@@ -406,8 +406,8 @@ class TestSpagTemplate(BaseTest):
 
     def setUp(self):
         super(TestSpagTemplate, self).setUp()
-        assert run_spag('env', 'set', '-E', 'endpoint=%s' % ENDPOINT)[2] == 0
-        assert run_spag('env', 'set', '-E', 'dir=%s' % TEMPLATES_DIR)
+        assert run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)[2] == 0
+        assert run_spag('env', 'set', 'dir=%s' % TEMPLATES_DIR)
 
     def test_spag_template_with_keyword(self):
         out, err, ret = run_spag('request', 'templates/post_thing',
