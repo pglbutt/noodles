@@ -16,6 +16,7 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 V1_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v1')
 V2_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v2')
 SPAG_REMEMBERS_DIR = spag_remembers.SpagRemembers.DIR
+SPAG_HISTORY_FILE = spag_remembers.SpagHistory.FILENAME
 
 def run_spag(*args):
     """
@@ -37,7 +38,14 @@ class BaseTest(unittest.TestCase):
         try:
             # both os.removedirs and os.rmdir don't work on non-empty dirs
             shutil.rmtree(SPAG_REMEMBERS_DIR)
-        except OSError as e:
+        except OSError:
+            pass
+
+    @classmethod
+    def _rm_history_file(cls):
+        try:
+            os.remove(SPAG_HISTORY_FILE)
+        except OSError:
             pass
 
     def setUp(self):
@@ -45,9 +53,11 @@ class BaseTest(unittest.TestCase):
         run_spag('get', '/clear', '-e', ENDPOINT)
         run_spag('env', 'unset', '.', '--everything')
         self._rm_remembers_dir()
+        self._rm_history_file()
 
     def tearDown(self):
         self._rm_remembers_dir()
+        self._rm_history_file()
         super(BaseTest, self).tearDown()
 
 class TestHeaders(BaseTest):
@@ -502,4 +512,81 @@ class TestSpagTemplate(BaseTest):
         out, err, ret = run_spag('get', '/things/@body.id')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"id": "wumbo"})
+        self.assertEqual(ret, 0)
+
+
+class TestSpagHistory(BaseTest):
+
+    def setUp(self):
+        super(TestSpagHistory, self).setUp()
+        _, _, ret = run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
+        _, _, ret = run_spag('env', 'set', 'dir=%s' % TEMPLATES_DIR)
+        self.assertEqual(ret, 0)
+
+    def test_empty_history(self):
+        out, err, ret = run_spag('history')
+
+        self.assertEqual(err, '')
+        self.assertEqual(out.strip(), '')
+        self.assertEqual(ret, 0)
+
+    def _run_test_method_history(self, spag_call, expected):
+        _, err, ret = spag_call()
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('history')
+        self.assertEqual(err, '')
+        self.assertEqual(out, expected)
+
+    def test_post_method_history(self):
+        self._run_test_method_history(
+            lambda: run_spag('post', '/things', '--data={"id": "posty"}'),
+            expected='0: POST %s/things\n' % ENDPOINT)
+
+    def test_put_method_history(self):
+        self._run_test_method_history(
+            lambda: run_spag('put', '/things/id'),
+            expected='0: PUT %s/things/id\n' % ENDPOINT)
+
+    def test_patch_method_history(self):
+        self._run_test_method_history(
+            lambda: run_spag('patch', '/things/id'),
+            expected='0: PATCH %s/things/id\n' % ENDPOINT)
+
+    def test_get_method_history(self):
+        self._run_test_method_history(
+            lambda: run_spag('get', '/things/wumbo'),
+            expected='0: GET %s/things/wumbo\n' % ENDPOINT)
+
+    def test_delete_method_history(self):
+        self._run_test_method_history(
+            lambda: run_spag('delete', '/things/wumbo'),
+            expected='0: DELETE %s/things/wumbo\n' % ENDPOINT)
+
+    def test_multi_history_items(self):
+        # make three requests
+        self.maxDiff = 9999999
+        _, err, _ = run_spag('get', '/things')
+        self.assertEqual(err, '')
+        _, err, _ = run_spag('request', 'template/post_thing',
+                             '--with', 'thing_id=wumbo')
+        self.assertEqual(err, '')
+        _, err, _ = run_spag('get', '/things/wumbo')
+        self.assertEqual(err, '')
+
+        # check `spag history`
+        out, err, ret = run_spag('history')
+        self.assertEqual(err, '')
+        self.assertEqual(out,
+            "0: GET {0}/things/wumbo\n"
+            "1: POST {0}/things\n"
+            "2: GET {0}/things\n"
+            .format(ENDPOINT))
+        self.assertEqual(ret, 0)
+
+        # check 'spag history show'
+        out, err, ret = run_spag('history', 'show', '1')
+        self.assertEqual(err, '')
+        self.assertIn('POST %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
