@@ -16,6 +16,13 @@ Basic rules:
             e.g. "{{last.response.body.id}}" says to look in a file last.yml
             and find the value keyed by response.body.id
 
+Default values:
+
+    - A default value can be specified using a colon:
+        {{item1, item2 : default}}
+    - If no items are matched, then the text after the colon is used
+    - Whitespace surrounding the colon is ignored
+
 Shortcut rules:
 
     - Double exclamation point:
@@ -69,6 +76,22 @@ def _substitute_braces(s, withs, body_type):
 
     items = [x.strip() for x in s.split(',') if x.strip()]
 
+    # look for a default value
+    default = None
+    if items and ':' in items[-1]:
+        # if the last item has multiple colons, split on the first one
+        # e.g. 'item:my:weird:default'
+        #      --> 'item' is the last item
+        #      --> 'my:weird:default' is the last default
+        parts = items[-1].split(':', 1)
+        items[-1] = parts[0].strip()
+        default = parts[1].strip()
+
+        if not default:
+            raise common.ToughNoodles(
+                "Bad template - expected default value after ':' in {0}"
+                .format(original))
+
     for item in items:
         # items without a dot are specfied using `--with item=val`
         if '.' not in item and item in withs:
@@ -80,6 +103,9 @@ def _substitute_braces(s, withs, body_type):
             return _lookup_item_with_dot(item, body_type)
         except common.ToughNoodles:
             pass
+
+    if default is not None:
+        return default
 
     raise common.ToughNoodles("Failed to substitute for {0}".format(original))
 
