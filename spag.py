@@ -28,7 +28,11 @@ def show_response(resp, show_headers):
     if show_headers:
         for k, v in resp.headers.items():
             click.echo("{0}: {1}".format(k, v))
-    click.echo(resp.text)
+    if resp.ok:
+        click.echo(resp.text)
+    else:
+        click.echo("ERROR: %s %s" % (str(resp.status_code), resp.reason))
+        click.echo(resp.text)
 
 @cli.command('get')
 @click.argument('resource')
