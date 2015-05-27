@@ -9,11 +9,11 @@ import click
 import requests
 import yaml
 
-import spag_files
-import spag_template
-from spag_remembers import SpagRemembers, SpagHistory
-from common import ToughNoodles, update
-import decorators as dec
+from spag import files
+from spag import template
+from spag import remembers
+from spag import decorators as dec
+from spag.common import ToughNoodles
 
 
 @click.group()
@@ -40,11 +40,11 @@ def show_response(resp, show_headers):
 def get(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP GET"""
     uri = endpoint + resource
-    uri = spag_template.untemplate(uri, shortcuts=True)
+    uri = template.untemplate(uri, shortcuts=True)
     r = requests.get(uri, headers=header, data=data)
     show_response(r, show_headers)
-    SpagRemembers.remember_request('get', r)
-    SpagHistory.append(r)
+    remembers.SpagRemembers.remember_request('get', r)
+    remembers.SpagHistory.append(r)
 
 @cli.command('post')
 @click.argument('resource')
@@ -52,11 +52,11 @@ def get(resource, endpoint=None, data=None, header=None, show_headers=False):
 def post(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP POST"""
     uri = endpoint + resource
-    uri = spag_template.untemplate(uri, shortcuts=True)
+    uri = template.untemplate(uri, shortcuts=True)
     r = requests.post(uri, data=data, headers=header)
     show_response(r, show_headers)
-    SpagRemembers.remember_request('post', r)
-    SpagHistory.append(r)
+    remembers.SpagRemembers.remember_request('post', r)
+    remembers.SpagHistory.append(r)
 
 @cli.command('put')
 @click.argument('resource')
@@ -64,11 +64,11 @@ def post(resource, endpoint=None, data=None, header=None, show_headers=False):
 def put(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP PUT"""
     uri = endpoint + resource
-    uri = spag_template.untemplate(uri, shortcuts=True)
+    uri = template.untemplate(uri, shortcuts=True)
     r = requests.put(uri, data=data, headers=header)
     show_response(r, show_headers)
-    SpagRemembers.remember_request('put', r)
-    SpagHistory.append(r)
+    remembers.SpagRemembers.remember_request('put', r)
+    remembers.SpagHistory.append(r)
 
 @cli.command('patch')
 @click.argument('resource')
@@ -76,11 +76,11 @@ def put(resource, endpoint=None, data=None, header=None, show_headers=False):
 def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP PATCH"""
     uri = endpoint + resource
-    uri = spag_template.untemplate(uri, shortcuts=True)
+    uri = template.untemplate(uri, shortcuts=True)
     r = requests.patch(uri, data=data, headers=header)
     show_response(r, show_headers)
-    SpagRemembers.remember_request('patch', r)
-    SpagHistory.append(r)
+    remembers.SpagRemembers.remember_request('patch', r)
+    remembers.SpagHistory.append(r)
 
 @cli.command('delete')
 @click.argument('resource')
@@ -88,11 +88,11 @@ def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
 def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP DELETE"""
     uri = endpoint + resource
-    uri = spag_template.untemplate(uri, shortcuts=True)
+    uri = template.untemplate(uri, shortcuts=True)
     r = requests.delete(uri, data=data, headers=header)
     show_response(r, show_headers)
-    SpagRemembers.remember_request('delete', r)
-    SpagHistory.append(r)
+    remembers.SpagRemembers.remember_request('delete', r)
+    remembers.SpagHistory.append(r)
 
 
 @cli.command('request')
@@ -109,10 +109,10 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
             show_headers=False, show=False, withs=None):
     try:
         if show and name is None:
-            for x in spag_files.SpagFilesLookup(dir).get_file_list():
+            for x in files.SpagFilesLookup(dir).get_file_list():
                 click.echo(x)
         elif show:
-            filename = spag_files.SpagFilesLookup(dir).get_path(name)
+            filename = files.SpagFilesLookup(dir).get_path(name)
             filename = os.path.relpath(filename, '.')
             click.echo("File {0}".format(filename))
             # TODO: show the untemplated version of the file here
@@ -120,10 +120,10 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
                 click.echo(f.read())
             # maybe should we still perform the request?
         else:
-            filename = spag_files.SpagFilesLookup(dir).get_path(name)
+            filename = files.SpagFilesLookup(dir).get_path(name)
 
             with open(filename, 'r') as f:
-                raw = spag_template.untemplate(f.read(), withs)
+                raw = template.untemplate(f.read(), withs)
 
             req = yaml.safe_load(raw)
 
@@ -141,8 +141,8 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
             method = req['method'].lower()
             resp = getattr(requests, method)(**kwargs)
             show_response(resp, show_headers)
-            SpagRemembers.remember_request(name, resp)
-            SpagHistory.append(resp)
+            remembers.SpagRemembers.remember_request(name, resp)
+            remembers.SpagHistory.append(resp)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
@@ -155,7 +155,7 @@ def env():
 @click.argument('envname', required=True)
 def env_activate(envname):
     try:
-        spag_files.SpagEnvironment().activate(envname)
+        files.SpagEnvironment().activate(envname)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
@@ -164,7 +164,7 @@ def env_activate(envname):
 @env.command('deactivate')
 def env_deactivate():
     try:
-        spag_files.SpagEnvironment().deactivate()
+        files.SpagEnvironment().deactivate()
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
@@ -174,7 +174,7 @@ def env_deactivate():
 @click.argument('envname', required=False)
 def env_show(envname=None):
     try:
-        env = spag_files.SpagEnvironment().get_env(envname)
+        env = files.SpagEnvironment().get_env(envname)
         click.echo(yaml.safe_dump(env, default_flow_style=False))
     except ToughNoodles as e:
         click.echo(str(e), err=True)
@@ -198,7 +198,7 @@ def env_set(envvars=None, header=None):
         envvars['headers'] = header
 
     try:
-        env = spag_files.SpagEnvironment().set_env(envvars)
+        env = files.SpagEnvironment().set_env(envvars)
         click.echo(yaml.safe_dump(env, default_flow_style=False))
     except ToughNoodles as e:
         click.echo(str(e), err=True)
@@ -209,7 +209,7 @@ def env_set(envvars=None, header=None):
 @click.option('--everything', is_flag=True, default=False)
 def env_unset(resource=None, everything=False):
     try:
-        env = spag_files.SpagEnvironment().unset_env(resource, everything)
+        env = files.SpagEnvironment().unset_env(resource, everything)
         click.echo(yaml.safe_dump(env, default_flow_style=False))
     except ToughNoodles as e:
         click.echo(str(e), err=True)
@@ -223,7 +223,7 @@ def history(ctx):
     # don't do this on `spag history <cmd>`
     if ctx.invoked_subcommand is None:
         try:
-            SpagHistory.list()
+            remembers.SpagHistory.list()
         except ToughNoodles as e:
             click.echo(str(e), err=True)
             sys.exit(1)
@@ -232,10 +232,7 @@ def history(ctx):
 @click.argument('index', required=True)
 def show_history_entry(index):
     try:
-        SpagHistory.show(index)
+        remembers.SpagHistory.show(index)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
-
-if __name__ == '__main__':
-    cli()
