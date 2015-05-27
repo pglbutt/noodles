@@ -1,6 +1,6 @@
 import os
 import yaml
-from common import ToughNoodles, split_path, update, ensure_dir_exists
+from spag.common import ToughNoodles, split_path, update, ensure_dir_exists
 
 
 def load_file(filename):

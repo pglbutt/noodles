@@ -3,13 +3,13 @@ import functools
 
 import click
 
-import spag_files
-from common import ToughNoodles, update
+from spag import files
+from spag.common import ToughNoodles, update
 
 def determine_endpoint(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        env = spag_files.SpagEnvironment.get_env()
+        env = files.SpagEnvironment.get_env()
         if kwargs['endpoint'] is None:
             try:
                 endpoint = env['endpoint']
@@ -26,7 +26,7 @@ def determine_endpoint(f):
 def prepare_headers(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        env = spag_files.SpagEnvironment.get_env()
+        env = files.SpagEnvironment.get_env()
         header = kwargs['header']
         if header is None or header == ():
             try:
@@ -57,7 +57,7 @@ def prepare_headers(f):
 def request_dir(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        env = spag_files.SpagEnvironment.get_env()
+        env = files.SpagEnvironment.get_env()
 
         if kwargs['dir'] is None:
             try:

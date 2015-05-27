@@ -5,8 +5,8 @@ import shutil
 import json
 import textwrap
 
-import spag_remembers
-import spag_files
+from spag import remembers
+from spag import files
 
 # TODO: read this from a config?
 SPAG_PROG = 'spag'
@@ -15,8 +15,8 @@ RESOURCES_DIR = os.path.join(os.path.dirname(__file__), 'resources')
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 V1_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v1')
 V2_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v2')
-SPAG_REMEMBERS_DIR = spag_remembers.SpagRemembers.DIR
-SPAG_HISTORY_FILE = spag_remembers.SpagHistory.FILENAME
+SPAG_REMEMBERS_DIR = remembers.SpagRemembers.DIR
+SPAG_HISTORY_FILE = remembers.SpagHistory.FILENAME
 
 def run_spag(*args):
     """
@@ -181,7 +181,7 @@ class TestSpagFiles(BaseTest):
         super(TestSpagFiles, self).setUp()
         run_spag('env', 'set', 'endpoint=%s' % ENDPOINT)
         run_spag('env', 'set', 'dir=%s' % RESOURCES_DIR)
-        self.table = spag_files.SpagFilesLookup(RESOURCES_DIR)
+        self.table = files.SpagFilesLookup(RESOURCES_DIR)
 
     def test_spag_lookup(self):
         expected = {
@@ -203,7 +203,7 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(self.table, expected)
 
     def test_spag_load_file(self):
-        content = spag_files.load_file(os.path.join(RESOURCES_DIR, 'auth.yml'))
+        content = files.load_file(os.path.join(RESOURCES_DIR, 'auth.yml'))
         self.assertEqual(content['method'], 'GET')
         self.assertEqual(content['uri'], '/auth')
         self.assertEqual(content['headers'], {'Accept': 'application/json'})
@@ -365,8 +365,8 @@ class TestSpagRemembers(BaseTest):
         self.assertTrue(os.path.exists(auth_file))
         self.assertTrue(os.path.exists(last_file))
 
-        auth_data = spag_files.load_file(auth_file)
-        last_data = spag_files.load_file(last_file)
+        auth_data = files.load_file(auth_file)
+        last_data = files.load_file(last_file)
 
         # check the saved request data
         req = auth_data['request']

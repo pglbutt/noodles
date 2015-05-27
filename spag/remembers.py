@@ -4,9 +4,8 @@ import string
 import yaml
 import click
 
-import spag_files
-import common
-
+from spag import files
+from spag import common
 
 def resp_to_dict(resp):
     result = {}
@@ -31,7 +30,7 @@ def resp_to_dict(resp):
     return result
 
 
-class SpagRemembers(spag_files.SpagFilesLookup):
+class SpagRemembers(files.SpagFilesLookup):
 
     DIR = './.spag/remembers/'
 
@@ -58,8 +57,8 @@ class SpagRemembers(spag_files.SpagFilesLookup):
 
         # for a/b/c.yml, ensure we have the .yml extension
         filename = path_parts[-1]
-        if not spag_files.SpagFilesLookup.has_valid_extension(filename):
-            filename += spag_files.SpagFilesLookup.VALID_EXTENSION
+        if not files.SpagFilesLookup.has_valid_extension(filename):
+            filename += files.SpagFilesLookup.VALID_EXTENSION
 
         # for a/b/c.yml, put it in <dir>/a/b/c.yml (and not <dir>/c.yml)
         filedir = cls.DIR

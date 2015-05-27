@@ -36,9 +36,9 @@ Shortcut rules:
 import json
 import string
 
-import common
-import spag_remembers
-import spag_files
+from spag import common
+from spag import remembers
+from spag import files
 
 
 def _find_double_braces(s):
@@ -114,8 +114,8 @@ def _lookup_item_with_dot(item, body_type):
     parts = item.split('.')
     name, lookup = parts[0], parts[1:]
 
-    path = spag_remembers.SpagRemembers().get_path(name)
-    data = spag_files.load_file(path)
+    path = remembers.SpagRemembers().get_path(name)
+    data = files.load_file(path)
 
     # load the body as json
     if body_type == 'json':
