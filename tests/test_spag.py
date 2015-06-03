@@ -33,6 +33,9 @@ def run_spag(*args):
 
 class BaseTest(unittest.TestCase):
 
+    # enable long diffs
+    maxDiff = None
+
     @classmethod
     def _rm_remembers_dir(cls):
         try:
@@ -514,6 +517,41 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(json.loads(out), {"id": "wumbo"})
         self.assertEqual(ret, 0)
 
+    def test_spag_template_default(self):
+        _, err, ret = run_spag('request', 'template/post_thing',
+                               '--with', 'thing_id=mydefaultid')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('request', 'template/get_default')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out), {"id": "mydefaultid"})
+        self.assertEqual(ret, 0)
+
+    def test_spag_template_from_default_and_active_environments(self):
+        _, err, ret = run_spag('env', 'set',
+                               'mini=barnacle boy',
+                               'wumbo=mermaid man',
+                               'thing=scooby doo')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('request', 'templates/get_default_env.yml')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out),
+            { "Mini": "barnacle boy",
+              "Wumbo": "mermaid man",
+              "Thing": "scooby doo" })
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('request', 'templates/get_active_env.yml')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out),
+            { "Mini": "barnacle boy",
+              "Wumbo": "mermaid man",
+              "Thing": "scooby doo" })
+        self.assertEqual(ret, 0)
+
 
 class TestSpagHistory(BaseTest):
 
@@ -566,7 +604,6 @@ class TestSpagHistory(BaseTest):
 
     def test_multi_history_items(self):
         # make three requests
-        self.maxDiff = 9999999
         _, err, _ = run_spag('get', '/things')
         self.assertEqual(err, '')
         _, err, _ = run_spag('request', 'template/post_thing',
@@ -591,13 +628,3 @@ class TestSpagHistory(BaseTest):
         self.assertIn('POST %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
 
-    def test_spag_template_default(self):
-        _, err, ret = run_spag('request', 'template/post_thing',
-                               '--with', 'thing_id=mydefaultid')
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-
-        out, err, ret = run_spag('request', 'template/get_default')
-        self.assertEqual(err, '')
-        self.assertEqual(json.loads(out), {"id": "mydefaultid"})
-        self.assertEqual(ret, 0)
