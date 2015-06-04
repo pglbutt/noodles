@@ -1,0 +1,6 @@
+method: GET
+uri: /headers
+headers:
+    mini: {{[default].mini}}
+    wumbo: {{other, [default].wumbo}}
+    thing: {{other, [default].thing, last.request.body.id}}

@@ -120,7 +120,7 @@ class SpagEnvironment(object):
         try:
             env = load_file(filename)
         except Exception as e:
-            raise ToughNoodles(e.message)
+            raise ToughNoodles(str(e))
 
         active = os.path.join(cls.SPAG_ENV_DIR, 'active')
         f = open(active, 'w')
@@ -141,7 +141,7 @@ class SpagEnvironment(object):
             try:
                 return load_file(filename)
             except Exception as e:
-                raise ToughNoodles(e.msg)
+                raise ToughNoodles(str(e))
 
         # If there is no environment, activate the default one
         activename = os.path.join(cls.SPAG_ENV_DIR, 'active')
