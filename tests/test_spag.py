@@ -552,6 +552,18 @@ class TestSpagTemplate(BaseTest):
               "Thing": "scooby doo" })
         self.assertEqual(ret, 0)
 
+    def test_spag_template_shortcut_from_default_environment(self):
+        _, err, ret = run_spag('request', 'template/post_thing',
+                               '--with', 'thing_id=wumbo')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        # set thing_id and lookup thing_id in the env using shortcut syntax
+        run_spag('env', 'set', 'thing_id=wumbo')
+        out, err, ret = run_spag('get', '/things/@[default].thing_id')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out), { "id": "wumbo" })
+        self.assertEqual(ret, 0)
 
 class TestSpagHistory(BaseTest):
 

@@ -202,7 +202,7 @@ def _lookup_item_from_request(item, body_type):
     return _dict_path_lookup(data, lookup_path)
 
 # allow brackets for specifying environment names
-VALID_SHORTCUT_CHARS = string.ascii_letters + string.digits + "[_."
+VALID_SHORTCUT_CHARS = string.ascii_letters + string.digits + "[]_."
 def _substitute_shortcuts(s, body_type):
     assert s.startswith('@')
     original = s
