@@ -222,13 +222,14 @@ def _substitute_shortcuts(s, body_type):
     # in case we have '@....poo', just compress the dots into a single dot
     key = s[:count].strip('.')
     if key.startswith('['):
-        return _lookup_item_from_environment(key)
+        val = _lookup_item_from_environment(key)
     elif '.' in key:
         key = 'last.response.' + key
-        return _lookup_item_from_request(key, body_type)
+        val = _lookup_item_from_request(key, body_type)
     else:
         key = 'last.response.body.' + key
-        return _lookup_item_from_request(key, body_type)
+        val = _lookup_item_from_request(key, body_type)
+    return val + s[count:]
 
 def untemplate(s, withs={}, body_type='json', shortcuts=False):
     """Process the {{ }} sections of the template strings
@@ -258,4 +259,5 @@ def split_with(w):
     return parts
 
 def parse_withs(withs):
-    return {k: v for k, v in (split_with(w) for w in withs)}
+    return {k: untemplate(v, shortcuts=True)
+            for k, v in (split_with(w) for w in withs)}
