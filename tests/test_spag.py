@@ -589,6 +589,34 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(json.loads(out), { "id": "wumbo" })
         self.assertEqual(ret, 0)
 
+    def test_spag_template_list_indexing(self):
+        # setup the last request to have a list in it
+        self._post_thing('mini')
+        _, err, ret = run_spag('get', '/things')
+
+        out, err, ret = run_spag('get', '/things/@body.things.0.id')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out), {"id": "mini"})
+        self.assertEqual(ret, 0)
+
+    def test_spag_template_list_index_out_of_bounds(self):
+        # setup the last request to have a list in it
+        self._post_thing('mini')
+        _, err, ret = run_spag('get', '/things')
+
+        out, err, ret = run_spag('get', '/things/@body.things.1.id')
+        self.assertIn('Index 1 out of bounds while looking up response.body.things.1.id', err)
+        self.assertEqual(ret, 1)
+
+    def test_spag_template_list_w_invalid_index(self):
+        # setup the last request to have a list in it
+        self._post_thing('mini')
+        _, err, ret = run_spag('get', '/things')
+
+        out, err, ret = run_spag('get', '/things/@body.things.poo.id')
+        self.assertIn('Invalid list index poo while fetching response.body.things.poo.id', err)
+        self.assertEqual(ret, 1)
+
 class TestSpagHistory(BaseTest):
 
     def setUp(self):

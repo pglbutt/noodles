@@ -4,7 +4,7 @@ import functools
 import click
 
 from spag import files
-from spag.common import ToughNoodles, update
+from spag.common import ToughNoodles
 
 def determine_endpoint(f):
     @functools.wraps(f)
@@ -23,34 +23,30 @@ def determine_endpoint(f):
         return f(*args, **kwargs)
     return wrapper
 
+def _headers_to_dict(headers):
+    if type(headers) != dict:
+        # assume something iterable, like tuple or list
+        return {key: value.strip()
+                for (key, value) in [h.split(':') for h in headers]}
+    return headers
+
 def prepare_headers(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         env = files.SpagEnvironment.get_env()
-        header = kwargs['header']
-        if header is None or header == ():
-            try:
-                headers = env['headers']
-                kwargs['header'] = headers
-            except ToughNoodles:
-                kwargs['header'] = None
-            except KeyError:
-                kwargs['header'] = None
-        else:
-            try:
-                # Headers come in as a tuple ('Header:Content', 'Header:Content')
-                supplied_headers = {key: value.strip() for (key, value) in [h.split(':') for h in header]}
-                if 'headers' in env:
-                    headers = update(env['headers'], supplied_headers)
-                else:
-                    headers = supplied_headers
-                kwargs['header'] = headers
-            except ValueError:
-                click.echo("Error: Invalid header!", err=True)
-                sys.exit(1)
-            except KeyError:
-                kwargs['header'] = {key: value.strip() for (key, value) in [h.split(':') for h in header]}
-
+        try:
+            if 'headers' in env:
+                # should already be a dict...
+                env['headers'] = _headers_to_dict(env['headers'])
+            if 'header' in kwargs:
+                kwargs['header'] = _headers_to_dict(kwargs['header'])
+                kwargs['header'].update(env.get('headers', {}))
+            else:
+                kwargs['header'] = dict(env.get('headers', {}))
+        except ValueError:
+            click.echo("Error: Invalid header!", err=True)
+            sys.exit(1)
+        assert type(kwargs['header']) is dict
         return f(*args, **kwargs)
     return wrapper
 

@@ -33,16 +33,16 @@ Default values:
 
 Shortcut rules:
 
-    - Double exclamation point:
-        - If <expr> starts with "[env]" then @<expr> expands to {{[env]...}
-            @[env].headers.accept --> {{[env].headers.accept}}
-        - If <expr> does not contain a '.', then @<expr> expands to
-        {{last.response.body.<expr>}}.
-            /thing/@id --> /thing/{{last.response.body.id}}
-        - If <expr> contains a '.', then "@<expr>" expands to
-        {{last.response.<expr>}}.
-            /thing/@headers.id --> /thing/{{last.response.headers.id}}
+    - If <expr> starts with "[env]" then @<expr> expands to {{[env]...}}
+        @[env].headers.accept --> {{[env].headers.accept}}
+    - If <expr> does not contain a '.', then @<expr> expands to
+    {{last.response.body.<expr>}}.
+        /thing/@id --> /thing/{{last.response.body.id}}
+    - If <expr> contains a '.', then "@<expr>" expands to
+    {{last.response.<expr>}}.
+        /thing/@headers.id --> /thing/{{last.response.headers.id}}
 """
+import collections
 import json
 import string
 
@@ -141,28 +141,30 @@ def _dict_path_lookup(data, path):
     """If path == "a.b.c", return data['a']['b']['c']. Raise ToughNoodles if
     the value is not found.
     """
+    original_path, original_data = path, data
     path = path.strip('.').split('.')
-    try:
-        for key in path:
-            # TODO: do we care about this?
-            # this won't work if we have a list somewhere along the way:
-            #   data = {a: [{b: 1}, {b: 2}]}
-            #   path = "a.0.2"
-            # we'll do:
-            #   data = data['a']  # data == [{b: 1}, {b: 2}]
-            #   data = data['0']  # error, list needs integer indices
-            if key in data:
+    for key in path:
+        # if list/tuple but not dict
+        if isinstance(data, collections.Sequence):
+            try:
+                key = int(key)
                 data = data[key]
-            else:
-                raise common.ToughNoodles
-        return data
-    except TypeError:
-        # raised if we tried LIST['poo'] or STRING['poo']
-        pass
-    except IndexError:
-        # raised if we tried LIST[999999999] or STRING[99999999]
-        pass
-    raise common.ToughNoodles
+            except IndexError as e:
+                # maybe too verbose on large dictionarys...
+                raise common.ToughNoodles(
+                    "Index {0} out of bounds while looking up {1} in {2}"
+                    .format(key, original_path.strip('.'), original_data))
+            except ValueError as e:
+                raise common.ToughNoodles(
+                    "Invalid list index {0} while fetching {1} from {2}"
+                    .format(key, original_path.strip('.'), original_data))
+        elif key in data:
+            data = data[key]
+        else:
+            raise common.ToughNoodles(
+                'Key {0} not found in {1}'.format(key, data))
+    return data
+
 
 def _lookup_item_from_environment(item):
     name, end = _read_environment_name(item)

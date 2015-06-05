@@ -138,7 +138,7 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
             req = yaml.safe_load(raw)
 
             if header:
-                header = {k: template.untemplate(v, shortcuts=True) for k, v in header}
+                header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
             kwargs = {
                 'url': endpoint + req['uri'],
                 'headers': header or req.get('headers', {})
