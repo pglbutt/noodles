@@ -5,6 +5,8 @@ import shutil
 import json
 import textwrap
 
+import yaml
+
 from spag import remembers
 from spag import files
 
@@ -616,6 +618,26 @@ class TestSpagTemplate(BaseTest):
         out, err, ret = run_spag('get', '/things/@body.things.poo.id')
         self.assertIn('Invalid list index poo while fetching response.body.things.poo.id', err)
         self.assertEqual(ret, 1)
+
+    def test_spag_templated_env_set(self):
+        # set a value we'll refer to in a template parameter
+        out, err, ret = run_spag('env', 'set', 'squidward=tentacle')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(yaml.load(out).get('squidward'), 'tentacle')
+
+        # check we can use template params with regular environment variables
+        out, err, ret = run_spag('env', 'set', 'patrick=@[].squidward')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(yaml.load(out).get('patrick'), 'tentacle')
+
+        # check we can use template params when setting headers in the env
+        out, err, ret = run_spag('env', 'set', '-H', 'sandy: @[].patrick')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(yaml.load(out)['headers'].get('sandy'), 'tentacle')
+
 
 class TestSpagHistory(BaseTest):
 
