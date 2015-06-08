@@ -99,6 +99,16 @@ class TestHeaders(BaseTest):
         self.assertEqual(ret, 0)
         self.assertIn('content-type: application/json', out)
 
+    def test_passed_headers_override_environment(self):
+        out, err, ret = run_spag('env', 'set', '-H', 'a: b')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(yaml.load(out)['headers'].get('a'), 'b')
+
+        out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT, '-H', 'a: c')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out).get('A'), 'c')
 
 class TestGet(BaseTest):
 

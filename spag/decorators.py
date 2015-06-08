@@ -35,14 +35,13 @@ def prepare_headers(f):
     def wrapper(*args, **kwargs):
         env = files.SpagEnvironment.get_env()
         try:
-            if 'headers' in env:
-                # should already be a dict...
-                env['headers'] = _headers_to_dict(env['headers'])
+            env['headers'] = _headers_to_dict(env.get('headers', {}))
             if 'header' in kwargs:
-                kwargs['header'] = _headers_to_dict(kwargs['header'])
-                kwargs['header'].update(env.get('headers', {}))
+                kwargs_headers = _headers_to_dict(kwargs['header'])
+                kwargs['header'] = env['headers']
+                kwargs['header'].update(kwargs_headers)
             else:
-                kwargs['header'] = dict(env.get('headers', {}))
+                kwargs['header'] = env['headers']
         except ValueError:
             click.echo("Error: Invalid header!", err=True)
             sys.exit(1)
