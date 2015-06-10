@@ -6,7 +6,7 @@ import json
 import functools
 
 import click
-import requests
+import urllib2
 import yaml
 
 from spag import files
@@ -34,66 +34,104 @@ def show_response(resp, show_headers):
         click.echo("ERROR: %s %s" % (str(resp.status_code), resp.reason))
         click.echo(resp.text)
 
+
+class Request(object):
+    """A Request object that looks more like request lib's Request but isn't"""
+
+    def __init__(self, req):
+        """
+        :param req: an instance of urllib2.Request
+        """
+        self.body = req.get_data()
+        self.headers = req.headers
+        self.method = req.get_method()
+        self.path_url = req.get_selector()
+        self.url = req.get_full_url()
+
+class Response(object):
+    """A Response that looks more requests lib's Response but isn't"""
+
+    def __init__(self, resp, req):
+        """
+        :param req: an instance of urllib2.Request or urllib2.HTTPError
+        :param resp: the result of urllib2.urlopen(...)
+        """
+        self.request = Request(req)
+        # we can only call resp.read() once
+        self.text = resp.read()
+        self.status_code = resp.code
+        self.headers = resp.headers
+        self.url = resp.url
+        # e.g. 'OK'
+        self.reason = resp.msg
+        self.ok = not isinstance(resp, urllib2.HTTPError)
+
+
+def do_request(method, resource, endpoint=None, header=None, data=None,
+               show_headers=False, remember_as=None):
+    req = urllib2.Request(
+        url = template.untemplate(endpoint + resource, shortcuts=True),
+        headers=header or {})
+    req.add_data(data)
+    req.get_method = lambda: method
+
+    try:
+        # urllib2's resp is file-like; we can only call resp.read() once
+        resp = urllib2.urlopen(req)
+        resp = Response(resp, req)
+    except urllib2.HTTPError as e:
+        resp = Response(e, req)
+    show_response(resp, show_headers)
+    remember_as = remember_as or method.lower()
+    remembers.SpagRemembers.remember_request(remember_as, resp)
+    remembers.SpagHistory.append(resp)
+
+    # how to do it with requests
+    #req = requests.Request(
+    #    method = method,
+    #    url = template.untemplate(endpoint + resource, shortcuts=True),
+    #    headers=header,
+    #    data=data)
+    #req = req.prepare()
+    #resp = requests.Session().send(req)
+    #show_response(resp, show_headers)
+    #remembers.SpagRemembers.remember_request('get', resp)
+    #remembers.SpagHistory.append(resp)
+
 @cli.command('get')
 @click.argument('resource')
 @dec.common_request_args
-def get(resource, endpoint=None, data=None, header=None, show_headers=False):
+def get(*args, **kwargs):
     """HTTP GET"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    r = requests.get(uri, headers=header, data=data)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('get', r)
-    remembers.SpagHistory.append(r)
+    do_request('GET', *args, **kwargs)
 
 @cli.command('post')
 @click.argument('resource')
 @dec.common_request_args
-def post(resource, endpoint=None, data=None, header=None, show_headers=False):
+def post(*args, **kwargs):
     """HTTP POST"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    r = requests.post(uri, data=data, headers=header)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('post', r)
-    remembers.SpagHistory.append(r)
+    do_request('POST', *args, **kwargs)
 
 @cli.command('put')
 @click.argument('resource')
 @dec.common_request_args
-def put(resource, endpoint=None, data=None, header=None, show_headers=False):
+def put(*args, **kwargs):
     """HTTP PUT"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    r = requests.put(uri, data=data, headers=header)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('put', r)
-    remembers.SpagHistory.append(r)
+    do_request('PUT', *args, **kwargs)
 
 @cli.command('patch')
 @click.argument('resource')
 @dec.common_request_args
-def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
+def patch(*args, **kwargs):
     """HTTP PATCH"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    r = requests.patch(uri, data=data, headers=header)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('patch', r)
-    remembers.SpagHistory.append(r)
+    do_request('PATCH', *args, **kwargs)
 
 @cli.command('delete')
 @click.argument('resource')
 @dec.common_request_args
-def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
+def delete(*args, **kwargs):
     """HTTP DELETE"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    r = requests.delete(uri, data=data, headers=header)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('delete', r)
-    remembers.SpagHistory.append(r)
-
+    do_request('DELETE', *args, **kwargs)
 
 @cli.command('request')
 @click.argument('name', required=False)
@@ -127,22 +165,22 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
 
             req = yaml.safe_load(raw)
 
+            method = req['method'].upper()
+            headers = header or req.get('headers', {})
             kwargs = {
-                'url': endpoint + req['uri'],
-                'headers': header or req.get('headers', {})
+                'method': method,
+                'endpoint': endpoint,
+                'resource': req['uri'],
+                'header': header or req.get('headers', {}),
+                'show_headers': show_headers,
+                'remember_as': name,
             }
             if data is not None:
                 kwargs['data'] = data
             elif 'body' in req:
                 kwargs['data'] = req['body']
 
-            # I don't know how to call click-decorated get(), post(), etc functions
-            # Use requests directly instead
-            method = req['method'].lower()
-            resp = getattr(requests, method)(**kwargs)
-            show_response(resp, show_headers)
-            remembers.SpagRemembers.remember_request(name, resp)
-            remembers.SpagHistory.append(resp)
+            do_request(**kwargs)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
