@@ -34,76 +34,60 @@ def show_response(resp, show_headers):
         click.echo("ERROR: %s %s" % (str(resp.status_code), resp.reason))
         click.echo(resp.text)
 
+def do_request(method, resource, endpoint=None, header=None, data=None,
+               show_headers=False, remember_as=None):
+
+    if data: data = template.untemplate(data, shortcuts=True)
+    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
+
+    req = requests.Request(
+        method = method,
+        url = template.untemplate(endpoint + resource, shortcuts=True),
+        headers=header,
+        data=data)
+    req = req.prepare()
+
+    resp = requests.Session().send(req)
+    show_response(resp, show_headers)
+
+    remember_as = remember_as or method.lower()
+    remembers.SpagRemembers.remember_request(remember_as, resp)
+    remembers.SpagHistory.append(resp)
+
 @cli.command('get')
 @click.argument('resource')
 @dec.common_request_args
-def get(resource, endpoint=None, data=None, header=None, show_headers=False):
+def get(*args, **kwargs):
     """HTTP GET"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    if data: data = template.untemplate(data, shortcuts=True)
-    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
-    r = requests.get(uri, headers=header, data=data)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('get', r)
-    remembers.SpagHistory.append(r)
+    do_request('GET', *args, **kwargs)
 
 @cli.command('post')
 @click.argument('resource')
 @dec.common_request_args
-def post(resource, endpoint=None, data=None, header=None, show_headers=False):
+def post(*args, **kwargs):
     """HTTP POST"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    if data: data = template.untemplate(data, shortcuts=True)
-    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
-    r = requests.post(uri, data=data, headers=header)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('post', r)
-    remembers.SpagHistory.append(r)
+    do_request('POST', *args, **kwargs)
 
 @cli.command('put')
 @click.argument('resource')
 @dec.common_request_args
-def put(resource, endpoint=None, data=None, header=None, show_headers=False):
+def put(*args, **kwargs):
     """HTTP PUT"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    if data: data = template.untemplate(data, shortcuts=True)
-    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
-    r = requests.put(uri, data=data, headers=header)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('put', r)
-    remembers.SpagHistory.append(r)
+    do_request('PUT', *args, **kwargs)
 
 @cli.command('patch')
 @click.argument('resource')
 @dec.common_request_args
-def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
+def patch(*args, **kwargs):
     """HTTP PATCH"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    if data: data = template.untemplate(data, shortcuts=True)
-    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
-    r = requests.patch(uri, data=data, headers=header)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('patch', r)
-    remembers.SpagHistory.append(r)
+    do_request('PATCH', *args, **kwargs)
 
 @cli.command('delete')
 @click.argument('resource')
 @dec.common_request_args
-def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
+def delete(*args, **kwargs):
     """HTTP DELETE"""
-    uri = endpoint + resource
-    uri = template.untemplate(uri, shortcuts=True)
-    if data: data = template.untemplate(data, shortcuts=True)
-    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
-    r = requests.delete(uri, data=data, headers=header)
-    show_response(r, show_headers)
-    remembers.SpagRemembers.remember_request('delete', r)
-    remembers.SpagHistory.append(r)
-
+    do_request('DELETE', *args, **kwargs)
 
 @cli.command('request')
 @click.argument('name', required=False)
@@ -137,24 +121,20 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
 
             req = yaml.safe_load(raw)
 
-            if header:
-                header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
             kwargs = {
-                'url': endpoint + req['uri'],
-                'headers': header or req.get('headers', {})
+                'method': req['method'].upper(),
+                'endpoint': endpoint,
+                'resource': req['uri'],
+                'header': header or req.get('headers', {}),
+                'show_headers': show_headers,
+                'remember_as': name,
             }
             if data is not None:
                 kwargs['data'] = template.untemplate(data, shortcuts=True)
             elif 'body' in req:
                 kwargs['data'] = req['body']
 
-            # I don't know how to call click-decorated get(), post(), etc functions
-            # Use requests directly instead
-            method = req['method'].lower()
-            resp = getattr(requests, method)(**kwargs)
-            show_response(resp, show_headers)
-            remembers.SpagRemembers.remember_request(name, resp)
-            remembers.SpagHistory.append(resp)
+            do_request(**kwargs)
     except ToughNoodles as e:
         click.echo(str(e), err=True)
         sys.exit(1)
