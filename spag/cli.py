@@ -41,6 +41,8 @@ def get(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP GET"""
     uri = endpoint + resource
     uri = template.untemplate(uri, shortcuts=True)
+    if data: data = template.untemplate(data, shortcuts=True)
+    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
     r = requests.get(uri, headers=header, data=data)
     show_response(r, show_headers)
     remembers.SpagRemembers.remember_request('get', r)
@@ -53,6 +55,8 @@ def post(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP POST"""
     uri = endpoint + resource
     uri = template.untemplate(uri, shortcuts=True)
+    if data: data = template.untemplate(data, shortcuts=True)
+    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
     r = requests.post(uri, data=data, headers=header)
     show_response(r, show_headers)
     remembers.SpagRemembers.remember_request('post', r)
@@ -65,6 +69,8 @@ def put(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP PUT"""
     uri = endpoint + resource
     uri = template.untemplate(uri, shortcuts=True)
+    if data: data = template.untemplate(data, shortcuts=True)
+    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
     r = requests.put(uri, data=data, headers=header)
     show_response(r, show_headers)
     remembers.SpagRemembers.remember_request('put', r)
@@ -77,6 +83,8 @@ def patch(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP PATCH"""
     uri = endpoint + resource
     uri = template.untemplate(uri, shortcuts=True)
+    if data: data = template.untemplate(data, shortcuts=True)
+    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
     r = requests.patch(uri, data=data, headers=header)
     show_response(r, show_headers)
     remembers.SpagRemembers.remember_request('patch', r)
@@ -89,6 +97,8 @@ def delete(resource, endpoint=None, data=None, header=None, show_headers=False):
     """HTTP DELETE"""
     uri = endpoint + resource
     uri = template.untemplate(uri, shortcuts=True)
+    if data: data = template.untemplate(data, shortcuts=True)
+    if header: header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
     r = requests.delete(uri, data=data, headers=header)
     show_response(r, show_headers)
     remembers.SpagRemembers.remember_request('delete', r)
@@ -127,12 +137,14 @@ def request(dir=None, name=None, endpoint=None, data=None, header=None,
 
             req = yaml.safe_load(raw)
 
+            if header:
+                header = {k: template.untemplate(v, shortcuts=True) for k, v in header.items()}
             kwargs = {
                 'url': endpoint + req['uri'],
                 'headers': header or req.get('headers', {})
             }
             if data is not None:
-                kwargs['data'] = data
+                kwargs['data'] = template.untemplate(data, shortcuts=True)
             elif 'body' in req:
                 kwargs['data'] = req['body']
 
@@ -191,8 +203,10 @@ def env_set(envvars=None, header=None):
         sys.exit(1)
 
     # Switch envvars, headers from Tuples to dict
-    envvars = {key: value for (key, value) in [e.split('=') for e in envvars]}
-    header = {key: value.strip() for (key, value) in [h.split(':') for h in header]}
+    envvars = {key: template.untemplate(value, shortcuts=True)
+               for (key, value) in [e.split('=') for e in envvars]}
+    header = {key: template.untemplate(value.strip(), shortcuts=True)
+              for (key, value) in [h.split(':') for h in header]}
 
     if header:
         envvars['headers'] = header
