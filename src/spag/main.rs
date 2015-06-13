@@ -1,5 +1,10 @@
+extern crate curl;
 extern crate docopt;
+
+use curl::http::handle::Method;
+use curl::http;
 use docopt::Docopt;
+use super::request::SpagRequest;
 
 docopt!(Args derive Debug, "
 Usage: spag request [show] <file> [(-H <header>)...]
@@ -48,6 +53,26 @@ fn spag_request(args: &Args) {
 }
 
 fn spag_method(args: &Args) {
-    println!("called spag method");
+    let method = get_method_from_args(args);
+    let endpoint = "http://localhost:5000".to_string();
+    let uri = args.arg_resource.to_string();
+    let mut req = SpagRequest::new(method, endpoint, uri);
+    req.add_headers(args.arg_header.iter());
+    do_request(&req);
 }
 
+fn do_request(req: &SpagRequest) {
+    println!("{:?}", req);
+    let mut handle = http::handle();
+    let resp = req.prepare(&mut handle).exec().unwrap();
+    println!("{}", resp);
+}
+
+fn get_method_from_args(args: &Args) -> Method {
+    if args.cmd_get { Method::Get }
+    else if args.cmd_post { Method::Post }
+    else if args.cmd_put { Method::Put }
+    else if args.cmd_patch { Method::Patch }
+    else if args.cmd_delete { Method::Delete }
+    else { panic!("BUG: method not recognized"); }
+}
