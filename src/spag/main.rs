@@ -8,12 +8,15 @@ use super::request::SpagRequest;
 use super::file;
 
 docopt!(Args derive Debug, "
-Usage: spag request [show] <file> [(-H <header>)...]
-       spag (get|post|put|patch|delete) <resource> [(-H <header>)...]
-       spag env set (<key> <val>)...
-       spag env show [<environment>]
-       spag history
-       spag history show <index>
+Usage:
+    spag (-h|--help)
+    spag env set (<key> <val>)...
+    spag env show [<environment>]
+    spag (get|post|put|patch|delete) <resource> [(-H <header>)...]
+    spag request <file> [(-H <header>)...]
+    spag request show <file>
+    spag history
+    spag history show <index>
 
 Options:
     -h, --help      Show this message
@@ -24,6 +27,19 @@ Arguments:
     <header>        An http header, like 'Content-type: application/json'
     <environment>   The name of an environment, like 'default'
     <index>         An index, starting at zero
+
+Commands:
+    env set         Set a key-value pair in the active environment
+    env show        Print out the specified environment
+    get             An HTTP GET request
+    post            An HTTP POST request
+    put             An HTTP PUT request
+    patch           An HTTP PATCH request
+    delete          An HTTP DELETE request
+    request         Make a request using a predefined file
+    request show    Show the specified request file
+    history         Print a list of previously made requests
+    history show    Print out a previous request by its index
 ");
 
 pub fn main() {
