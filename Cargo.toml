@@ -1,0 +1,4 @@
+[package]
+name = "noodles"
+version = "0.1.0"
+authors = ["Paul Glass <pnglass@gmail.com>"]
