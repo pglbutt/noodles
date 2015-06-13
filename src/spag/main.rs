@@ -5,6 +5,7 @@ use curl::http::handle::Method;
 use curl::http;
 use docopt::Docopt;
 use super::request::SpagRequest;
+use super::file;
 
 docopt!(Args derive Debug, "
 Usage: spag request [show] <file> [(-H <header>)...]
@@ -41,7 +42,24 @@ pub fn main() {
 }
 
 fn spag_env(args: &Args) {
-    println!("called spag env");
+    if args.cmd_show {
+        spag_env_show(&args);
+    } else if args.cmd_set {
+        spag_env_set(&args);
+    } else {
+        panic!("BUG: Invalid command");
+    }
+}
+
+fn spag_env_set(args: &Args) {
+    println!("TODO");
+    let y = file::load_yaml_file("active.yml");
+    println!("{:?}", y);
+}
+
+fn spag_env_show(args: &Args) {
+    let s = file::read_file("active.yml");
+    println!("{}", s.trim());
 }
 
 fn spag_history(args: &Args) {
