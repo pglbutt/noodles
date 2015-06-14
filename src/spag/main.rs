@@ -5,7 +5,7 @@ use curl::http::handle::Method;
 use curl::http;
 use docopt::Docopt;
 use super::request::SpagRequest;
-use super::file;
+use super::env;
 
 docopt!(Args derive Debug, "
 Usage:
@@ -68,14 +68,11 @@ fn spag_env(args: &Args) {
 }
 
 fn spag_env_set(args: &Args) {
-    println!("TODO");
-    let y = file::load_yaml_file("active.yml");
-    println!("{:?}", y);
+    env::set_in_environment(&args.arg_environment, &args.arg_key, &args.arg_val);
 }
 
 fn spag_env_show(args: &Args) {
-    let s = file::read_file("active.yml");
-    println!("{}", s.trim());
+    env::show_environment(&args.arg_environment);
 }
 
 fn spag_history(args: &Args) {

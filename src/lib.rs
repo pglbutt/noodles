@@ -1,3 +1,4 @@
+#![feature(fs_walk)]
 #![feature(convert)]
 #![feature(debug_builders)]
 #![feature(plugin)]
