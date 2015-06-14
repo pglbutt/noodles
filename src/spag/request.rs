@@ -38,7 +38,7 @@ pub fn method_to_str(m: Method) -> &'static str {
 pub struct SpagRequest {
     pub method: Method,
     pub headers: HashMap<String, String>,
-    pub body: Option<String>,
+    pub body: String,
     pub endpoint: String,
     pub uri: String,
 }
@@ -48,7 +48,7 @@ impl SpagRequest {
     pub fn new(method: Method, endpoint: String, uri: String) -> SpagRequest {
         SpagRequest {
             method: method,
-            body: None,
+            body: String::new(),
             headers: HashMap::new(),
             endpoint: endpoint,
             uri: uri
@@ -60,7 +60,7 @@ impl SpagRequest {
     }
 
     pub fn set_body(&mut self, body: String) {
-        self.body = Some(body);
+        self.body = body;
     }
 
     /// Headers is some iterable of Strings like "Content-type: application/json".
@@ -74,10 +74,13 @@ impl SpagRequest {
         }
     }
 
-    pub fn prepare<'a, 'b>(&self, handle: &'a mut http::Handle) -> http::Request<'a, 'b> {
+    pub fn prepare<'a, 'b>(&'b self, handle: &'a mut http::Handle) -> http::Request<'a, 'b> {
         let uri = self.endpoint.to_string() + &self.uri;
+        let headers = self.headers.iter().map(|(a, b)| (a.as_str(), b.as_str()));
         http::Request::new(handle, self.method)
             .uri(uri.to_string())
+            .headers(headers)
+            .body(&self.body)
     }
 }
 

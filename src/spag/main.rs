@@ -9,21 +9,24 @@ use super::env;
 
 docopt!(Args derive Debug, "
 Usage:
-    spag (-h|--help)
+    spag --help
     spag env set (<key> <val>)...
     spag env show [<environment>]
-    spag (get|post|put|patch|delete) <resource> [(-H <header>)...]
-    spag request <file> [(-H <header>)...]
+    spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>]
+    spag request <file> [(-H <header>)...] [-e <endpoint>] [-d <data>]
     spag request show <file>
     spag history
     spag history show <index>
 
 Options:
-    -h, --help      Show this message
-    -H, --header    Supply a header
+    -h, --help                  Show this message
+    -H, --header <header>       Supply a header
+    -e, --endpoint <endpoint>   Supply the endpoint
+    -d, --data <data>           Supply the request body
 
 Arguments:
-    <resource>      The path of an api resource, like /v2/things
+    <endpoint>      The base url of the service, like 'http://localhost:5000'
+    <resource>      The path of an api resource, like '/v2/things'
     <header>        An http header, like 'Content-type: application/json'
     <environment>   The name of an environment, like 'default'
     <index>         An index, starting at zero
@@ -44,7 +47,7 @@ Commands:
 
 pub fn main() {
     let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
-    println!("{:?}", args);
+    // println!("{:?}", args);
 
     if args.cmd_request {
         spag_request(&args);
@@ -69,6 +72,7 @@ fn spag_env(args: &Args) {
 
 fn spag_env_set(args: &Args) {
     env::set_in_environment(&args.arg_environment, &args.arg_key, &args.arg_val);
+    env::show_environment(&args.arg_environment);
 }
 
 fn spag_env_show(args: &Args) {
@@ -85,18 +89,20 @@ fn spag_request(args: &Args) {
 
 fn spag_method(args: &Args) {
     let method = get_method_from_args(args);
-    let endpoint = "http://localhost:5000".to_string();
+    let endpoint = get_endpoint(args);
     let uri = args.arg_resource.to_string();
     let mut req = SpagRequest::new(method, endpoint, uri);
-    req.add_headers(args.arg_header.iter());
+    req.add_headers(args.flag_header.iter());
+    req.set_body(args.flag_data.clone());
     do_request(&req);
 }
 
 fn do_request(req: &SpagRequest) {
-    println!("{:?}", req);
+    // println!("{:?}", req);
     let mut handle = http::handle();
     let resp = req.prepare(&mut handle).exec().unwrap();
-    println!("{}", resp);
+    // println!("{}", resp);
+    println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
 }
 
 fn get_method_from_args(args: &Args) -> Method {
@@ -106,4 +112,19 @@ fn get_method_from_args(args: &Args) -> Method {
     else if args.cmd_patch { Method::Patch }
     else if args.cmd_delete { Method::Delete }
     else { panic!("BUG: method not recognized"); }
+}
+
+fn get_endpoint(args: &Args) -> String {
+    // passing -e ENDPOINT overrides everything else
+    if !args.flag_endpoint.is_empty() {
+        args.flag_endpoint.to_string()
+    } else {
+        let env = env::load_environment("");
+
+        if let Some(e) = env["endpoint"].as_str() {
+            e.to_string()
+        } else {
+            panic!("Endpoint not set");
+        }
+    }
 }

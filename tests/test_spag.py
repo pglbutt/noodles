@@ -7,8 +7,8 @@ import textwrap
 
 import yaml
 
-from spag import remembers
-from spag import files
+# from spag import remembers
+# from spag import files
 
 # TODO: read this from a config?
 SPAG_PROG = 'spag'
@@ -17,8 +17,8 @@ RESOURCES_DIR = os.path.join(os.path.dirname(__file__), 'resources')
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 V1_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v1')
 V2_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v2')
-SPAG_REMEMBERS_DIR = remembers.SpagRemembers.DIR
-SPAG_HISTORY_FILE = remembers.SpagHistory.FILENAME
+# SPAG_REMEMBERS_DIR = remembers.SpagRemembers.DIR
+# SPAG_HISTORY_FILE = remembers.SpagHistory.FILENAME
 
 def run_spag(*args):
     """
@@ -42,14 +42,16 @@ class BaseTest(unittest.TestCase):
     def _rm_remembers_dir(cls):
         try:
             # both os.removedirs and os.rmdir don't work on non-empty dirs
-            shutil.rmtree(SPAG_REMEMBERS_DIR)
+            # shutil.rmtree(SPAG_REMEMBERS_DIR)
+            pass
         except OSError:
             pass
 
     @classmethod
     def _rm_history_file(cls):
         try:
-            os.remove(SPAG_HISTORY_FILE)
+            # os.remove(SPAG_HISTORY_FILE)
+            pass
         except OSError:
             pass
 
@@ -70,32 +72,38 @@ class TestHeaders(BaseTest):
 
     def test_get_no_headers(self):
         out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT)
+        self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {})
 
     def test_get_one_header(self):
         out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT, '-H', 'pglbutt:pglbutt')
+        self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
 
     def test_get_two_headers(self):
         out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT,
                                  '-H', 'pglbutt:pglbutt', '-H', 'wow:wow')
+        self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt", "Wow": "wow"})
 
     def test_get_no_header(self):
         out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT, '-H')
+        self.assertEqual(err, '')
         self.assertNotEqual(ret, 0)
         self.assertEqual(err, 'Error: -H option requires an argument\n')
 
     def test_get_invalid_header(self):
         out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT, '-H', 'poo')
+        self.assertEqual(err, '')
         self.assertNotEqual(ret, 0)
         self.assertEqual(err, 'Error: Invalid header!\n')
 
     def test_show_headers(self):
         out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT, '-h')
+        self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertIn('content-type: application/json', out)
 
@@ -191,6 +199,7 @@ class TestDelete(BaseTest):
         self.assertEqual(json.loads(out), {"things": []})
 
 
+@unittest.skip("not implemented")
 class TestSpagFiles(BaseTest):
 
     def setUp(self):
@@ -358,6 +367,7 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
 
 
+@unittest.skip("not implemented")
 class TestSpagRemembers(BaseTest):
 
     def setUp(self):
@@ -428,6 +438,7 @@ class TestSpagRemembers(BaseTest):
 
         self.assertTrue(os.path.exists(filepath))
 
+@unittest.skip("not implemented")
 class TestSpagTemplate(BaseTest):
 
     def setUp(self):
@@ -649,6 +660,7 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(yaml.load(out)['headers'].get('sandy'), 'tentacle')
 
 
+@unittest.skip("not implemented")
 class TestSpagHistory(BaseTest):
 
     def setUp(self):

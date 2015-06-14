@@ -56,13 +56,10 @@ pub fn walk_dir(dir: &str) -> Vec<PathBuf> {
 /// Walk the given directory, and return all paths ending with the given filename
 pub fn find_matching_files(filename: &str, dir: &str) -> Vec<PathBuf> {
     let path = Path::new(filename);
-    println!("finding {:?}", path);
-    let result: Vec<PathBuf> = walk_dir(dir).iter()
+    walk_dir(dir).iter()
         .filter(|p| p.ends_with(path))
         .map(|p| p.clone())
-        .collect();
-    println!("found {:?}", result);
-    result
+        .collect()
 }
 
 /// ensure_extension("aaa", "yml") -> "abc.yml"

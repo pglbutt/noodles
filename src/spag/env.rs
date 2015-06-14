@@ -5,23 +5,36 @@ use yaml_rust;
 use yaml_rust::Yaml;
 use yaml_rust::YamlEmitter;
 
-const ENV_DIR: &'static str         = ".spag/environments";
-const ACTIVE_ENV_FILE: &'static str = ".spag/environments/active";
-const DEFAULT_ENV: &'static str     = "default";
+const ENV_DIR: &'static str          = ".spag/environments";
+const ACTIVE_ENV_FILE: &'static str  = ".spag/environments/active";
+const DEFAULT_ENV_NAME: &'static str = "default";
 
-pub fn get_active_environment() -> String {
+pub fn get_active_environment_name() -> String {
+    // create file specifiying the active env if it doesn't exist
     if !Path::new(ACTIVE_ENV_FILE).exists() {
-        file::write_file(ACTIVE_ENV_FILE, DEFAULT_ENV);
-        DEFAULT_ENV.to_string()
-    } else {
-        file::read_file(ACTIVE_ENV_FILE)
+        file::write_file(ACTIVE_ENV_FILE, DEFAULT_ENV_NAME);
     }
+
+    // create the default environment if it doesn't exist
+    let default_file = &format!("{}/{}", ENV_DIR, file::ensure_extension(DEFAULT_ENV_NAME, "yml"));
+    if !Path::new(default_file).exists() {
+        file::write_file(default_file, "{}");
+    }
+    file::read_file(ACTIVE_ENV_FILE)
+}
+
+pub fn load_environment(name: &str) -> Yaml {
+    let filename = &get_environment_filename(name);
+    if !Path::new(filename).exists() {
+        file::write_file(filename, "{}");
+    }
+    file::load_yaml_file(filename)
 }
 
 fn get_environment_filename(name: &str) -> String {
     let name =
         if name.is_empty() {
-            get_active_environment()
+            get_active_environment_name()
         } else {
             name.to_string()
         };
@@ -33,9 +46,7 @@ fn get_environment_filename(name: &str) -> String {
         panic!("Ambiguous environment name. Pick one of {:?}", paths);
     } else {
         paths[0].to_str().unwrap().to_string()
-        // println!("{}", file::read_file(paths[0].to_str().unwrap()));
     }
-
 }
 
 /// Print out the given environment. If name is empty, use the active environment.
