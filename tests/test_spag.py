@@ -11,7 +11,7 @@ import yaml
 # from spag import files
 
 # TODO: read this from a config?
-SPAG_PROG = 'spag'
+SPAG_PROG = './target/debug/spag'
 ENDPOINT = 'http://localhost:5000'
 RESOURCES_DIR = os.path.join(os.path.dirname(__file__), 'resources')
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
