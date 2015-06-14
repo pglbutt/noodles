@@ -1,18 +1,4 @@
-language: python
-python:
-  - "2.7"
-  - "3.4"
-  - "pypy"
-  - "pypy3"
-# command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install:
-  - "pip install ."
-  - "pip install -r requirements.txt"
-# command to run tests, e.g. python setup.py test
-script:
-  - "mkdir -p .spag/environments" # Eventually this can be replaced by a `spag init`
-  - "pip install -r tests/test-requirements.txt"
-  - "python tests/testapp.py &"
-  - "nosetests -sv tests/"
+language: rust
+rust: nightly
 notifications:
   email: false
