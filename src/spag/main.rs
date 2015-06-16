@@ -11,6 +11,7 @@ docopt!(Args derive Debug, "
 Usage:
     spag --help
     spag env set (<key> <val>)...
+    spag env unset [(<key>)...] [-E]
     spag env show [<environment>]
     spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>]
     spag request <file> [(-H <header>)...] [-e <endpoint>] [-d <data>]
@@ -23,6 +24,7 @@ Options:
     -H, --header <header>       Supply a header
     -e, --endpoint <endpoint>   Supply the endpoint
     -d, --data <data>           Supply the request body
+    -E, --everything            Unset an entire environment
 
 Arguments:
     <endpoint>      The base url of the service, like 'http://localhost:5000'
@@ -65,6 +67,8 @@ fn spag_env(args: &Args) {
         spag_env_show(&args);
     } else if args.cmd_set {
         spag_env_set(&args);
+    } else if args.cmd_unset {
+        spag_env_unset(&args);
     } else {
         panic!("BUG: Invalid command");
     }
@@ -73,6 +77,16 @@ fn spag_env(args: &Args) {
 fn spag_env_set(args: &Args) {
     env::set_in_environment(&args.arg_environment, &args.arg_key, &args.arg_val);
     env::show_environment(&args.arg_environment);
+}
+
+fn spag_env_unset(args: &Args) {
+    if args.flag_everything == false {
+        env::unset_in_environment(&args.arg_environment, &args.arg_key);
+        env::show_environment(&args.arg_environment);
+    } else {
+        env::unset_all_environment(&args.arg_environment);
+        env::show_environment(&args.arg_environment);
+    }
 }
 
 fn spag_env_show(args: &Args) {

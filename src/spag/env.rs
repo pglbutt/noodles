@@ -80,12 +80,42 @@ pub fn set_in_environment(name: &str, keys: &Vec<String>, vals: &Vec<String>) {
     file::write_file(&filename, &out_str);
 }
 
+/// Loads the environment, unsets a list of keys, and writes out the environment
+/// This supports nested key paths:
+///     unset_in_environment("default", ["a.b.c", "wumbo"])
+///         -> default["a"]["b"]["c"] = None
+///         -> default["wumbo"] = None
+pub fn unset_in_environment(name: &str, keys: &Vec<String>) {
+    file::ensure_dir_exists(ENV_DIR);
+    let filename = get_environment_filename(name);
+    let mut y = file::load_yaml_file(&filename);
+
+    for key in keys.iter() {
+        let parts: Vec<&str> = key.split('.').collect();
+        unset_nested_value(&mut y, parts.as_slice());
+    }
+
+    let mut out_str = String::new();
+    {
+        let mut emitter = YamlEmitter::new(&mut out_str);
+        emitter.dump(&y).unwrap();
+    }
+    file::write_file(&filename, &out_str);
+}
+
+/// Empties the environment. Unsets all values.
+pub fn unset_all_environment(name: &str) {
+    file::ensure_dir_exists(ENV_DIR);
+    let filename = get_environment_filename(name);
+
+    file::write_file(&filename, "---\n{}");
+}
 
 /// If keys is ["a", "b", "c"], then set y["a"]["b"]["c"] = <val>. This will create all of the
 /// intermediate maps if they don't exist.
 pub fn set_nested_value(y: &mut Yaml, keys: &[&str], val: &str) {
     if keys.is_empty() {
-        panic!("BUG: No keys given to set in the Yaml");
+        panic!("BUG: No keys given to set in the environment.");
     }
     let key = Yaml::String(keys[0].to_string());
     if let Yaml::Hash(ref mut h) = *y {
@@ -100,5 +130,23 @@ pub fn set_nested_value(y: &mut Yaml, keys: &[&str], val: &str) {
         }
     } else {
         panic!(format!("Failed to set key {:?} in {:?}", key, y));
+    }
+}
+
+/// If keys is ["a", "b", "c"], then unset y["a"]["b"]["c"]
+pub fn unset_nested_value(y: &mut Yaml, keys: &[&str]) {
+    if keys.is_empty() {
+        panic!("BUG: No keys given to unset in the environment.");
+    }
+    let key = Yaml::String(keys[0].to_string());
+    if let Yaml::Hash(ref mut h) = *y {
+        if keys.len() == 1 {
+            h.remove(&key);
+        } else {
+            // traverse nested dictionaries to find the key
+            unset_nested_value(h.get_mut(&key).unwrap(), &keys[1..]);
+        }
+    } else {
+        panic!(format!("Failed to unset key {:?} in {:?}", key, y));
     }
 }
