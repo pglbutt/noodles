@@ -1,6 +1,9 @@
 use super::env;
 use super::file;
+use super::template;
+use super::template::Token;
 use yaml_rust::YamlLoader;
+use std::collections::hash_map::HashMap;
 
 #[test] fn test_set_nested_value_in_yaml() {
     let mut doc = &mut YamlLoader::load_from_str("{}").unwrap()[0];
@@ -50,4 +53,91 @@ use yaml_rust::YamlLoader;
     assert!(&file::ensure_extension("aaa.yml", "yml") == "aaa.yml");
     assert!(&file::ensure_extension("aaa.yml", ".yml") == "aaa.yml");
     assert!(&file::ensure_extension("aaa.poo.", ".yml") == "aaa.poo.yml");
+}
+
+#[test] fn test_tokenize_text() {
+    let tokens = template::Tokenizer::new("wumbo", true).tokenize().unwrap();
+    assert_eq!(tokens, vec![Token::Text("wumbo")]);
+}
+
+#[test] fn test_tokenize_list() {
+    let tokens = template::Tokenizer::new("{{wumbo, aaa.bbb : ccc }}", true).tokenize().unwrap();
+    assert_eq!(tokens, vec![
+        Token::Substitute(vec![
+            Token::With("wumbo"),
+            Token::Request("aaa", vec!["bbb"]),
+            Token::DefaultVal("ccc"),
+        ])]);
+}
+
+#[test] fn test_tokenize_shortcut() {
+    let tokens = template::Tokenizer::new("@wumbo", true).tokenize().unwrap();
+    assert_eq!(tokens, vec![ Token::Substitute(vec![ Token::With("wumbo") ])]);
+}
+
+#[test] fn test_tokenize_text_list_shortcut_together() {
+    let text =
+        "  pglbutt   @[ env ].wumbo.thing_1234567890/poo{{last.response.body.id}}\t\nhello \t";
+    let tokens = template::Tokenizer::new(text, true).tokenize().unwrap();
+    assert_eq!(tokens, vec![
+        Token::Text("  pglbutt   "),
+        Token::Substitute(vec![ Token::Env("env", vec!["wumbo", "thing_1234567890"]) ]),
+        Token::Text("/poo"),
+        Token::Substitute(vec![ Token::Request("last", vec!["response", "body", "id"]) ]),
+        Token::Text("\t\nhello \t"),
+    ]);
+}
+
+#[test] fn test_token_text_shortcuts_disabled() {
+    let tokens = template::Tokenizer::new("@a{{b}}", false).tokenize().unwrap();
+    assert_eq!(tokens, vec![
+        Token::Text("@a"),
+        Token::Substitute(vec![ Token::With("b") ]),
+    ]);
+}
+
+#[test] fn test_untemplate_withs() {
+    let mut withs: HashMap<&str, &str> = HashMap::new();
+    withs.insert("a", "A");
+    withs.insert("b", "B");
+    let text = template::untemplate("@a{{b}}", &withs, true).unwrap();
+    assert_eq!(&text, "AB");
+    let text = template::untemplate("{{a}}{{b}}", &withs, true).unwrap();
+    assert_eq!(&text, "AB");
+    let text = template::untemplate("{{a}}@b", &withs, true).unwrap();
+    assert_eq!(&text, "AB");
+    let text = template::untemplate("@a@b", &withs, true).unwrap();
+    assert_eq!(&text, "AB");
+    let text = template::untemplate("  mini  {{a}}  @b  wumbo  ", &withs, true).unwrap();
+    assert_eq!(&text, "  mini  A  B  wumbo  ");
+}
+
+#[test] fn test_untemplate_withs_w_many_items() {
+    let mut withs: HashMap<&str, &str> = HashMap::new();
+    withs.insert("a", "A");
+    let text = template::untemplate("{{a, b, c}}", &withs, true).unwrap();
+    assert_eq!(&text, "A");
+    let text = template::untemplate("{{b, a, c}}", &withs, true).unwrap();
+    assert_eq!(&text, "A");
+    let text = template::untemplate("{{b, c, a}}", &withs, true).unwrap();
+    assert_eq!(&text, "A");
+}
+
+#[test] fn test_untemplate_list_w_default_value() {
+    let mut withs: HashMap<&str, &str> = HashMap::new();
+    withs.insert("a", "A");
+    let text = template::untemplate("{{a, b : hello}}", &withs, true).unwrap();
+    assert_eq!(&text, "A");
+    let text = template::untemplate("{{b, a : hello}}", &withs, true).unwrap();
+    assert_eq!(&text, "A");
+    let text = template::untemplate("{{b, c : hello}}", &withs, true).unwrap();
+    assert_eq!(&text, "hello");
+}
+
+#[test] fn test_untemplate_list_no_substitute_found() {
+    let withs: HashMap<&str, &str> = HashMap::new();
+    let result = template::untemplate("{{a, b, c}}", &withs, true);
+    assert!(result.is_err());
+    let result = template::untemplate("@a", &withs, true);
+    assert!(result.is_err());
 }

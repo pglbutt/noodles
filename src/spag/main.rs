@@ -1,11 +1,14 @@
 extern crate curl;
 extern crate docopt;
 
+use std::collections::hash_map::HashMap;
 use curl::http::handle::Method;
 use curl::http;
 use docopt::Docopt;
 use super::request::SpagRequest;
 use super::env;
+use super::template;
+
 
 docopt!(Args derive Debug, "
 Usage:
@@ -15,8 +18,8 @@ Usage:
     spag env show [<environment>]
     spag env activate <environment>
     spag env deactivate
-    spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>]
-    spag request <file> [(-H <header>)...] [-e <endpoint>] [-d <data>]
+    spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...]
+    spag request <file> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...]
     spag request show <file>
     spag history
     spag history show <index>
@@ -116,12 +119,21 @@ fn spag_history(args: &Args) {
 }
 
 fn spag_request(args: &Args) {
-    println!("called spag request");
+    println!("key={:?} val={:?}", args.arg_key, args.arg_val);
+    let mut withs: HashMap<&str, &str> = HashMap::new();
+    for (k, v) in args.arg_key.iter().zip(args.arg_val.iter()) {
+        withs.insert(k, v);
+    }
+    let text = template::untemplate(&args.arg_file, &withs, true);
+    println!("untemplated: {:?}", text);
 }
 
 fn spag_method(args: &Args) {
     let method = get_method_from_args(args);
-    let endpoint = get_endpoint(args);
+    let endpoint = match get_endpoint(args) {
+        Ok(e) => { e },
+        Err(msg) => { println!("{}", msg); return; }
+    };
     let uri = args.arg_resource.to_string();
     let mut req = SpagRequest::new(method, endpoint, uri);
     req.add_headers(args.flag_header.iter());
@@ -146,17 +158,17 @@ fn get_method_from_args(args: &Args) -> Method {
     else { panic!("BUG: method not recognized"); }
 }
 
-fn get_endpoint(args: &Args) -> String {
+fn get_endpoint(args: &Args) -> Result<String, String> {
     // passing -e ENDPOINT overrides everything else
     if !args.flag_endpoint.is_empty() {
-        args.flag_endpoint.to_string()
+        Ok(args.flag_endpoint.to_string())
     } else {
-        let env = env::load_environment("");
+        let env = try!(env::load_environment(""));
 
         if let Some(e) = env["endpoint"].as_str() {
-            e.to_string()
+            Ok(e.to_string())
         } else {
-            panic!("Endpoint not set");
+            Err("Endpoint not set".to_string())
         }
     }
 }

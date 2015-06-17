@@ -46,18 +46,18 @@ pub fn deactivate_environment() {
 
 /// Returns a YAML object of the environment file requested.
 /// If the environment doesn't exist, it creates it.
-pub fn load_environment(name: &str) -> Yaml {
-    let filename = &get_environment_filename(name);
+pub fn load_environment(name: &str) -> Result<Yaml, String> {
+    let filename = &try!(get_environment_filename(name));
     if !Path::new(filename).exists() {
         file::write_file(filename, "{}");
     }
-    file::load_yaml_file(filename)
+    Ok(file::load_yaml_file(filename))
 }
 
 /// Returns the filename for the request environment.
 /// If an empty string is passed, the active environment filename is returned.
 /// Handles ambiguous environment names.
-fn get_environment_filename(name: &str) -> String {
+fn get_environment_filename(name: &str) -> Result<String, String> {
     let name =
         if name.is_empty() {
             get_active_environment_name()
@@ -67,20 +67,21 @@ fn get_environment_filename(name: &str) -> String {
     let filename = file::ensure_extension(&name, ".yml");
     let paths = file::find_matching_files(&filename, ".spag/environments");
     if paths.is_empty() {
-        panic!("Environment not found");
+        Err(format!("Environment not found"))
     } else if paths.len() >= 2 {
-        panic!("Ambiguous environment name. Pick one of {:?}", paths);
+        Err(format!("Ambiguous environment name. Pick one of {:?}", paths))
     } else {
-        paths[0].to_str().unwrap().to_string()
+        Ok(paths[0].to_str().unwrap().to_string())
     }
 }
 
 /// Print out the given environment. If name is empty, use the active environment.
 /// The name will be fixed to end with '.yml'
-pub fn show_environment(name: &str) {
+pub fn show_environment(name: &str) -> Result<(), String> {
     file::ensure_dir_exists(ENV_DIR);
-    let filename = get_environment_filename(name);
+    let filename = try!(get_environment_filename(name));
     println!("{}", file::read_file(&filename));
+    Ok(())
 }
 
 /// Loads the environment, sets a list of key-value pairs, and writes out the environment
@@ -88,9 +89,10 @@ pub fn show_environment(name: &str) {
 ///     set_in_environment("default", ["a.b.c", "mini], ["efg", "wumbo"])
 ///         -> default["a"]["b"]["c"] = "efg"
 ///         -> default["mini"] = "wumbo"
-pub fn set_in_environment(name: &str, keys: &Vec<String>, vals: &Vec<String>) {
+pub fn set_in_environment(name: &str, keys: &Vec<String>, vals: &Vec<String>
+                          ) -> Result<(), String> {
     file::ensure_dir_exists(ENV_DIR);
-    let filename = get_environment_filename(name);
+    let filename = try!(get_environment_filename(name));
     let mut y = file::load_yaml_file(&filename);
 
     for (k, v) in keys.iter().zip(vals.iter()) {
@@ -104,6 +106,7 @@ pub fn set_in_environment(name: &str, keys: &Vec<String>, vals: &Vec<String>) {
         emitter.dump(&y).unwrap();
     }
     file::write_file(&filename, &out_str);
+    Ok(())
 }
 
 /// Loads the environment, unsets a list of keys, and writes out the environment
@@ -111,9 +114,9 @@ pub fn set_in_environment(name: &str, keys: &Vec<String>, vals: &Vec<String>) {
 ///     unset_in_environment("default", ["a.b.c", "wumbo"])
 ///         -> default["a"]["b"]["c"] = None
 ///         -> default["wumbo"] = None
-pub fn unset_in_environment(name: &str, keys: &Vec<String>) {
+pub fn unset_in_environment(name: &str, keys: &Vec<String>) -> Result<(), String> {
     file::ensure_dir_exists(ENV_DIR);
-    let filename = get_environment_filename(name);
+    let filename = try!(get_environment_filename(name));
     let mut y = file::load_yaml_file(&filename);
 
     for key in keys.iter() {
@@ -127,14 +130,16 @@ pub fn unset_in_environment(name: &str, keys: &Vec<String>) {
         emitter.dump(&y).unwrap();
     }
     file::write_file(&filename, &out_str);
+    Ok(())
 }
 
 /// Empties the environment. Unsets all values.
-pub fn unset_all_environment(name: &str) {
+pub fn unset_all_environment(name: &str) -> Result<(), String> {
     file::ensure_dir_exists(ENV_DIR);
-    let filename = get_environment_filename(name);
+    let filename = try!(get_environment_filename(name));
 
     file::write_file(&filename, "---\n{}");
+    Ok(())
 }
 
 /// If keys is ["a", "b", "c"], then set y["a"]["b"]["c"] = <val>. This will create all of the
@@ -174,5 +179,24 @@ pub fn unset_nested_value(y: &mut Yaml, keys: &[&str]) {
         }
     } else {
         panic!(format!("Failed to unset key {:?} in {:?}", key, y));
+    }
+}
+
+pub fn get_nested_value<'a>(y: &'a Yaml, keys: &[&str]) -> Option<&'a Yaml> {
+    if keys.is_empty() { return None; }
+    let key = Yaml::String(keys[0].to_string());
+    if let Yaml::Hash(ref h) = *y {
+        match h.get(&key) {
+            Some(val) => {
+                if keys.len() == 1 {
+                    Some(val)
+                } else {
+                    get_nested_value(val, &keys[1..])
+                }
+            },
+            None => { None },
+        }
+    } else {
+        None
     }
 }
