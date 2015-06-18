@@ -66,10 +66,22 @@ impl SpagRequest {
     /// Headers is some iterable of Strings like "Content-type: application/json".
     /// Attempts to split on the ':' and panics if this fails.
     pub fn add_headers<'a, I: Iterator<Item=&'a String>>(&mut self, headers: I) {
-        for header in headers {
-            match http::header::parse(header.clone().into_bytes().as_slice()) {
-                Some((name, val)) => { self.headers.insert(name.to_string(), val.to_string()); }
-                None => { panic!(format!("Invalid header {:?}", header)); }
+        for rawheader in headers {
+            // Strip out any spaces and separate the components
+            let header = rawheader.replace(" ", "");
+            let h: Vec<&str> = header.split(":").collect();
+
+            // If the header didn't have a colon, or had more than 1, it's invalid
+            if h.len() != 2 {
+                panic!(format!("Invalid header {:?}", header));
+            }
+
+            // curl-rust handles content-type in an odd way, so this is necessary
+            let lcname = h[0].to_lowercase();
+            if lcname == "content-type" {
+                self.headers.insert("Content-Type".to_string(), h[1].to_string());
+            } else {
+                self.headers.insert(h[0].to_string(), h[1].to_string());
             }
         }
     }
