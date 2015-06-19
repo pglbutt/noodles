@@ -9,6 +9,8 @@ const ENV_DIR: &'static str          = ".spag/environments";
 const ACTIVE_ENV_FILE: &'static str  = ".spag/environments/active";
 const DEFAULT_ENV_NAME: &'static str = "default";
 
+/// Creates the active environment file, and the default environment file if they don't exist.
+/// Returns the name of the active environment, read from the active environment file.
 pub fn get_active_environment_name() -> String {
     // create file specifiying the active env if it doesn't exist
     if !Path::new(ACTIVE_ENV_FILE).exists() {
@@ -23,6 +25,27 @@ pub fn get_active_environment_name() -> String {
     file::read_file(ACTIVE_ENV_FILE)
 }
 
+/// Writes to the active environment file the name of the supplied environment, if it exists.
+pub fn set_active_environment(name: &str) {
+    let env_filename = &format!("{}/{}", ENV_DIR, file::ensure_extension(name, "yml"));
+    if !Path::new(env_filename).exists() {
+        panic!("Tried to activate non-existent environment {:?}", name);
+    }
+    // write out new name to the active file
+    file::write_file(ACTIVE_ENV_FILE, name);
+}
+
+/// Sets the active environment to the 'default' environment.
+pub fn deactivate_environment() {
+    let activename = get_active_environment_name();
+
+    if activename != DEFAULT_ENV_NAME {
+        set_active_environment(DEFAULT_ENV_NAME);
+    }
+}
+
+/// Returns a YAML object of the environment file requested.
+/// If the environment doesn't exist, it creates it.
 pub fn load_environment(name: &str) -> Yaml {
     let filename = &get_environment_filename(name);
     if !Path::new(filename).exists() {
@@ -31,6 +54,9 @@ pub fn load_environment(name: &str) -> Yaml {
     file::load_yaml_file(filename)
 }
 
+/// Returns the filename for the request environment.
+/// If an empty string is passed, the active environment filename is returned.
+/// Handles ambiguous environment names.
 fn get_environment_filename(name: &str) -> String {
     let name =
         if name.is_empty() {
