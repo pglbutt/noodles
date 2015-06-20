@@ -1,6 +1,8 @@
-use super::env;
+use std;
 use std::collections::hash_map::HashMap;
 use yaml_rust::Yaml;
+
+use super::env;
 
 const VALID_ITEM_NAME_CHARS: &'static str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_";
@@ -17,10 +19,12 @@ pub enum Token<'a> {
 
 /// Untemplate the given string
 ///
-/// Strategy:
+/// The strategy this uses is to a take a string like:
+///
 ///     "aaaa{{thing, [env].thing.id, last.response.body.thing}}"
 ///
-/// Becomes, roughly:
+/// and convert that to tokens:
+///
 ///     vec![
 ///         Text("aaaa"),
 ///         Substitute([
@@ -29,6 +33,8 @@ pub enum Token<'a> {
 ///             Request("last", ["response", "body", "thing"]),
 ///         ])
 ///     ]
+///
+/// and then do substitutions and build the resulting string
 pub fn untemplate(text: &str, withs: &HashMap<&str, &str>, shortcuts: bool
                   ) -> Result<String, String> {
     let tokens = try!(Tokenizer::new(text, shortcuts).tokenize());
@@ -82,8 +88,7 @@ fn substitute<'a>(options: &Vec<Token<'a>>, withs: &HashMap<&str, &str>
 
 pub struct Tokenizer<'a> {
     text: &'a str,
-    char_indices: Vec<(usize, char)>,
-    i: usize,
+    char_indices: std::iter::Peekable<std::str::CharIndices<'a>>,
     shortcuts: bool,
 }
 
@@ -91,14 +96,14 @@ impl<'a> Tokenizer<'a> {
     pub fn new(text: &'a str, shortcuts: bool) -> Tokenizer<'a> {
         Tokenizer {
             text: text,
-            char_indices: text.char_indices().collect(),
-            i: 0,
+            char_indices: text.char_indices().peekable(),
             shortcuts: shortcuts,
         }
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<Token<'a>>, String> {
-        self.i = 0;
+        // reset the iterator back to the start of the text
+        self.char_indices = self.text.char_indices().peekable();
         let mut result: Vec<Token<'a>> = Vec::new();
         loop {
             if self.eof() {
@@ -106,7 +111,7 @@ impl<'a> Tokenizer<'a> {
             } else if self.has("{{") {
                 result.push(try!(self.read_braces()));
             } else if self.shortcuts && self.has("@") {
-                self.i += 1;
+                self.next();
                 let token = try!(self.read_brace_item());
                 result.push(Token::Substitute(vec![token]));
             } else {
@@ -119,19 +124,19 @@ impl<'a> Tokenizer<'a> {
     /// Use this to read any text outside of {{...}} lists and the shortcut notation @<thing>
     fn read_text(&mut self) -> Result<Token<'a>, String> {
         if self.eof() { return Err("Expected text?".to_string()); }
-        let (start, _) = self.char_indices[self.i];
+        let &(start, _) = self.peek().unwrap();
         let mut end;
         loop {
             if self.eof() {
                 end = self.text.len();
                 break;
             }
-            let (offset, _) = self.char_indices[self.i];
             if self.has("{{") || (self.shortcuts && self.has("@")) {
+                let &(offset, _) = self.peek().unwrap();
                 end = offset;
                 break;
             }
-            self.i += 1;
+            self.next();
         }
         if start == end {
             Err("Failed to read text".to_string())
@@ -143,27 +148,27 @@ impl<'a> Tokenizer<'a> {
     /// Read a list of items delimited by double braces, like {{<item>, <item>, ...}}
     fn read_braces(&mut self) -> Result<Token<'a>, String> {
         if !self.has("{{") { panic!("BUG: read_braces called when no braces found"); }
-        self.i += 2;
+        self.next(); self.next();
         let mut result: Vec<Token<'a>> = Vec::new();
         loop {
             let token = try!(self.read_brace_item());
             result.push(token);
             self.skip_whitespace();
             if self.has("}}") {
-                self.i += 2;
+                self.next(); self.next();
                 break;
             } else if self.eof() {
                 return Err("Unclosed braces".to_string());
             } else if self.has(",") {
-                self.i += 1;
+                self.next();
             } else if self.has(":") {
-                self.i += 1;
+                self.next();
                 let default = try!(self.read_default_value()).trim();
                 if !self.has("}}") {
                     return Err("Default value must be the last list item after the ':'.".to_string());
                 }
                 result.push(Token::DefaultVal(default));
-                self.i += 2;
+                self.next(); self.next();
                 break;
             }
         }
@@ -198,7 +203,7 @@ impl<'a> Tokenizer<'a> {
         let env_name =
             // an empty environment name means use the active env
             if self.has("]") {
-                self.i += 1;
+                self.next();
                 ""
             } else {
                 let name = try!(self.read_item_name());
@@ -241,7 +246,7 @@ impl<'a> Tokenizer<'a> {
             if !self.has(".") {
                 break;
             } else {
-                self.i += 1;
+                self.next();
             }
             let part = try!(self.read_item_name());
             key_path.push(part);
@@ -256,18 +261,18 @@ impl<'a> Tokenizer<'a> {
         if self.eof() {
             return Err("Found eof while reading default value. Unclosed braces".to_string());
         }
-        let (start, _) = self.char_indices[self.i];
+        let &(start, _) = self.peek().unwrap();
         let mut end;
         loop {
             if self.eof() {
                 return Err("Found eof while reading default value. Unclosed braces".to_string());
             }
             if self.has("}}") {
-                let (offset, _) = self.char_indices[self.i];
+                let &(offset, _) = self.peek().unwrap();
                 end = offset;
                 break;
             }
-            self.i += 1;
+            self.next();
         }
         if start == end {
             Err("Found empty default value.".to_string())
@@ -281,19 +286,19 @@ impl<'a> Tokenizer<'a> {
         if self.eof() {
             return Err("Expected a name but found eof".to_string());
         }
-        let (start, _) = self.char_indices[self.i];
+        let &(start, _) = self.peek().unwrap();
         let mut end;
         loop {
             if self.eof() {
                 end = self.text.len();
                 break;
             }
-            let (offset, c) = self.char_indices[self.i];
+            let &(offset, c) = self.peek().unwrap();
             if !VALID_ITEM_NAME_CHARS.contains(c) {
                 end = offset;
                 break;
             }
-            self.i += 1;
+            self.next();
         }
         if start == end {
             Err("No item found".to_string())
@@ -303,51 +308,62 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Check if the current position starts with the given string
-    fn has(&self, s: &'static str) -> bool {
-        if self.eof() { return false; }
-        let (offset, _) = self.char_indices[self.i];
-        let end =
-            if offset + s.len() > self.text.len() {
-                self.text.len()
-            } else {
-                offset + s.len()
-            };
-        s == &self.text[offset .. end]
+    fn has(&mut self, s: &'static str) -> bool {
+        if let Some(&(offset, _)) = self.peek() {
+            let end =
+                if offset + s.len() > self.text.len() {
+                    self.text.len()
+                } else {
+                    offset + s.len()
+                };
+            s == &self.text[offset .. end]
+        } else {
+            false
+        }
     }
 
     /// Check for the end of the text
-    fn eof(&self) -> bool {
-        self.i >= self.char_indices.len()
+    fn eof(&mut self) -> bool {
+        return self.peek().is_none()
     }
 
     /// Return but do not consume the char at the current position
     fn peek_char(&mut self) -> Option<char> {
-        if self.eof() {
-            None
-        } else {
-            let (_, c) = self.char_indices[self.i];
-            Some(c)
+        match self.peek() {
+            Some(&(_, c)) => { Some(c) },
+            None => { None },
         }
+    }
+
+    #[inline]
+    fn peek(&mut self) -> Option<&(usize, char)> {
+        self.char_indices.peek()
+    }
+
+    #[inline]
+    fn next(&mut self) -> Option<(usize, char)> {
+        self.char_indices.next()
     }
 
     /// Consume the char at the current position if it matches. Else error.
     fn expect_char(&mut self, expected: char) -> Result<char, String> {
-        if self.eof() {
-            return Err(format!("Expected character {:?} but found eof", expected));
-        }
-        let c = self.peek_char().unwrap();
-        if c == expected {
-            self.i += 1;
-            Ok(c)
-        } else {
-            Err(format!("Expected {:?} but found {:?}", expected, c))
+        match self.peek() {
+            Some(&(_, c)) => {
+                if c == expected {
+                    self.next();
+                    Ok(c)
+                } else {
+                    Err(format!("Expected character {:?} but found {:?}", expected, c))
+                }
+            },
+            _ => { Err(format!("Expected chararacter {:?} but found eof", expected)) },
         }
     }
 
     fn skip_whitespace(&mut self) {
         loop {
             match self.peek_char() {
-                Some(c) if c.is_whitespace() => { self.i += 1; }
+                Some(c) if c.is_whitespace() => { self.next(); }
                 _ => { break; }
             }
         }
