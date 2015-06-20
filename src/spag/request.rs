@@ -76,13 +76,15 @@ impl SpagRequest {
                 panic!(format!("Invalid header {:?}", header));
             }
 
-            // curl-rust handles content-type in an odd way, so this is necessary
-            let lcname = h[0].to_lowercase();
-            if lcname == "content-type" {
-                self.headers.insert("Content-Type".to_string(), h[1].to_string());
-            } else {
-                self.headers.insert(h[0].to_string(), h[1].to_string());
-            }
+            let name =
+                if h[0].to_lowercase() == "content-type" {
+                    "Content-Type".to_string()
+                } else {
+                    h[0].to_string()
+                };
+            let value = h[1].to_string();
+
+            self.headers.insert(name, value);
         }
     }
 

@@ -13,6 +13,8 @@ Usage:
     spag env set (<key> <val>)...
     spag env unset [(<key>)...] [-E]
     spag env show [<environment>]
+    spag env activate <environment>
+    spag env deactivate
     spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>]
     spag request <file> [(-H <header>)...] [-e <endpoint>] [-d <data>]
     spag request show <file>
@@ -35,7 +37,10 @@ Arguments:
 
 Commands:
     env set         Set a key-value pair in the active environment
+    env unset       Unset one or more keys in the active environment
     env show        Print out the specified environment
+    env activate    Activate an environment by name
+    env deactivate  Deactivate the environment and return to the default environment
     get             An HTTP GET request
     post            An HTTP POST request
     put             An HTTP PUT request
@@ -69,6 +74,10 @@ fn spag_env(args: &Args) {
         spag_env_set(&args);
     } else if args.cmd_unset {
         spag_env_unset(&args);
+    } else if args.cmd_activate {
+        spag_env_activate(&args);
+    } else if args.cmd_deactivate {
+        spag_env_deactivate(&args);
     } else {
         panic!("BUG: Invalid command");
     }
@@ -91,6 +100,15 @@ fn spag_env_unset(args: &Args) {
 
 fn spag_env_show(args: &Args) {
     env::show_environment(&args.arg_environment);
+}
+
+fn spag_env_activate(args: &Args) {
+    env::set_active_environment(&args.arg_environment);
+    env::show_environment(&args.arg_environment);
+}
+
+fn spag_env_deactivate(args: &Args) {
+    env::deactivate_environment();
 }
 
 fn spag_history(args: &Args) {

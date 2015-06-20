@@ -342,7 +342,6 @@ class TestSpagEnvironments(BaseTest):
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-    @unittest.skip('Not Implemented')
     def test_spag_environment_activate_deactivate(self):
         out, err, ret = run_spag('env', 'unset', '--everything')
         self.assertEqual(err, '')
