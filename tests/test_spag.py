@@ -201,15 +201,15 @@ class TestDelete(BaseTest):
         self.assertEqual(json.loads(out), {"things": []})
 
 
-@unittest.skip('Not Implemented')
 class TestSpagFiles(BaseTest):
 
     def setUp(self):
         super(TestSpagFiles, self).setUp()
-        run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)
-        run_spag('env', 'set', 'dir=%s' % RESOURCES_DIR)
-        self.table = files.SpagFilesLookup(RESOURCES_DIR)
+        run_spag('env', 'set', 'endpoint', ENDPOINT)
+        run_spag('env', 'set', 'dir', RESOURCES_DIR)
+        # self.table = files.SpagFilesLookup(RESOURCES_DIR)
 
+    @unittest.skip('Should be a unit test')
     def test_spag_lookup(self):
         expected = {
             'auth.yml': set([
@@ -229,6 +229,7 @@ class TestSpagFiles(BaseTest):
         }
         self.assertEqual(self.table, expected)
 
+    @unittest.skip('Should be a unit test')
     def test_spag_load_file(self):
         content = files.load_file(os.path.join(RESOURCES_DIR, 'auth.yml'))
         self.assertEqual(content['method'], 'GET')

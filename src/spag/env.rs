@@ -51,7 +51,7 @@ pub fn load_environment(name: &str) -> Result<Yaml, String> {
     if !Path::new(filename).exists() {
         file::write_file(filename, "{}");
     }
-    Ok(file::load_yaml_file(filename))
+    file::load_yaml_file(filename)
 }
 
 /// Returns the filename for the request environment.
@@ -65,7 +65,7 @@ fn get_environment_filename(name: &str) -> Result<String, String> {
             name.to_string()
         };
     let filename = file::ensure_extension(&name, ".yml");
-    let paths = file::find_matching_files(&filename, ".spag/environments");
+    let paths = try!(file::find_matching_files(&filename, ".spag/environments"));
     if paths.is_empty() {
         Err(format!("Environment not found"))
     } else if paths.len() >= 2 {
@@ -93,7 +93,7 @@ pub fn set_in_environment(name: &str, keys: &Vec<String>, vals: &Vec<String>
                           ) -> Result<(), String> {
     file::ensure_dir_exists(ENV_DIR);
     let filename = try!(get_environment_filename(name));
-    let mut y = file::load_yaml_file(&filename);
+    let mut y = try!(file::load_yaml_file(&filename));
 
     for (k, v) in keys.iter().zip(vals.iter()) {
         let parts: Vec<&str> = k.split('.').collect();
@@ -117,7 +117,7 @@ pub fn set_in_environment(name: &str, keys: &Vec<String>, vals: &Vec<String>
 pub fn unset_in_environment(name: &str, keys: &Vec<String>) -> Result<(), String> {
     file::ensure_dir_exists(ENV_DIR);
     let filename = try!(get_environment_filename(name));
-    let mut y = file::load_yaml_file(&filename);
+    let mut y = try!(file::load_yaml_file(&filename));
 
     for key in keys.iter() {
         let parts: Vec<&str> = key.split('.').collect();

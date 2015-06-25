@@ -5,6 +5,22 @@ use std::ascii::AsciiExt;
 use std::collections::hash_map::HashMap;
 use curl::http;
 use curl::http::handle::Method;
+use yaml_rust::Yaml;
+use super::file;
+
+pub fn load_request_file(name: &str, dir: &str) -> Result<Yaml, String> {
+    if name.is_empty() {
+        return Err("No request filename given".to_string());
+    }
+    let options = try!(file::find_matching_files(&file::ensure_extension(name, "yml"), dir));
+    if options.is_empty() {
+        Err(format!("Request file {:?} not found", name))
+    } else if options.len() == 1 {
+        file::load_yaml_file(options[0].to_str().unwrap())
+    } else {
+        Err(format!("Ambiguous request name. Choose one of {:?}", options))
+    }
+}
 
 pub fn method_from_str(s: &str) -> Method {
     match s.to_ascii_lowercase().as_str() {
