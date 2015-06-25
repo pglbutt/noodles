@@ -285,8 +285,8 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(json.loads(out), {"Hello": "abcde"})
         self.assertEqual(ret, 0)
 
-    def test_spag_show_requests(self):
-        out, err, ret = run_spag('request', '--show')
+    def test_spag_list_requests(self):
+        out, err, ret = run_spag('request', 'list')
         def parse(text):
             return text.split()
         expected = """

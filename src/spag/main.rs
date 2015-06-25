@@ -159,43 +159,44 @@ fn spag_history(args: &Args) {
 
 
 fn spag_request(args: &Args) {
+    if args.cmd_list {
+        spag_request_list(args);
+    } else if args.cmd_show {
+        spag_request_show(args);
+    } else {
+        spag_request_a_file(args);
+    }
+}
 
+fn spag_request_a_file(args: &Args) {
     let endpoint = try_error!(get_endpoint(args));
     let dir = try_error!(get_dir(args));
 
-    if args.cmd_list {
-        spag_request_list(args);
-        return;
-    }
-    // TODO: handle cmd_show
-
     match request::load_request_file(&args.arg_file, &dir) {
         Ok(y) => {
-            // TODO: refactor this
             let method = get_string_from_yaml(&y, &["method"]);
             let uri = get_string_from_yaml(&y, &["uri"]);
 
             let default_string = &Yaml::String(String::new());
             let body = env::get_nested_value(&y, &["body"]).unwrap_or(default_string);
-            let default_hash = &Yaml::Hash(Hash::new());
-            let headers = env::get_nested_value(&y, &["headers"]).unwrap_or(default_hash);
+            let headers = try_error!(get_headers(args, &y));
 
-            if let (&Yaml::String(ref b), &Yaml::Hash(ref h)) = (body, headers) {
-                let str_headers: Vec<String> = h.iter()
-                    .map(|(k, v)| format!("{}: {}", k.as_str().unwrap(), v.as_str().unwrap()))
+            if let &Yaml::String(ref b) = body {
+                // join headers into single strings...which will then be split immediately
+                let str_headers: Vec<String> = headers.iter()
+                    .map(|(k, v)| format!("{}: {}", k, v))
                     .collect();
                 //println!("{:?}", str_headers);
 
                 let mut req = SpagRequest::new(request::method_from_str(&method), endpoint, uri);
-                req.add_headers(str_headers.iter());
+                try_error!(req.add_headers(str_headers.iter()));
                 req.set_body(b.to_string());
                 do_request(&req);
             } else {
-                println!("BUG: bad type on body or header");
-                return;
+                error!("BUG: bad type on body or header");
             }
         },
-        Err(msg) => { println!("{}", msg); }
+        Err(msg) => { error!("{}", msg); }
     }
     //println!("key={:?} val={:?}", args.arg_key, args.arg_val);
     //let mut withs: HashMap<&str, &str> = HashMap::new();
@@ -206,14 +207,26 @@ fn spag_request(args: &Args) {
     //println!("untemplated: {:?}", text);
 }
 
+fn spag_request_show(args: &Args) {
+    let dir = try_error!(get_dir(args));
+    let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
+    // TODO: read_file() panics. don't do that.
+    let contents = file::read_file(&filename);
+    println!("{}", contents);
+}
+
 fn spag_request_list(args: &Args) {
+    let dir = try_error!(get_dir(args));
     let filenames = try_error!(file::walk_dir(&dir));
     let mut yaml_files: Vec<&PathBuf> = filenames.iter()
         .filter(|p| p.to_str().unwrap().ends_with(".yml"))
         .collect();
     yaml_files.sort();
+
+    let current_dir = try_error!(std::env::current_dir());
     for file in yaml_files.iter() {
-        println!("{:?}", file);
+        // relative_from() is unstable
+        println!("{}", file.relative_from(&current_dir).unwrap().to_str().unwrap());
     }
 }
 
@@ -225,7 +238,7 @@ fn spag_method(args: &Args) {
     };
     let uri = args.arg_resource.to_string();
     let mut req = SpagRequest::new(method, endpoint, uri);
-    req.add_headers(args.flag_header.iter());
+    try_error!(req.add_headers(args.flag_header.iter()));
     req.set_body(args.flag_data.clone());
     do_request(&req);
 }
@@ -263,6 +276,7 @@ fn get_endpoint(args: &Args) -> Result<String, String> {
 }
 
 fn get_dir(args: &Args) -> Result<String, String> {
+    // passing in --dir overrides everything else
     if !args.flag_dir.is_empty() {
         Ok(args.flag_dir.to_string())
     } else {
@@ -274,6 +288,42 @@ fn get_dir(args: &Args) -> Result<String, String> {
             Err("Request directory not set".to_string())
         }
     }
+}
+
+fn get_headers(args: &Args, request_yaml: &Yaml) -> Result<HashMap<String, String>, String> {
+    let default_hash = &Yaml::Hash(Hash::new());
+    let mut result: HashMap<String, String> = HashMap::new();
+
+    // TODO: case insensitivity
+    // start with headers in the environment
+    // be sure not to fail if we fail to load the env.
+    let env = env::load_environment("").unwrap_or(Yaml::Hash(Hash::new()));
+    let env_headers = env::get_nested_value(&env, &["headers"]).unwrap_or(default_hash);
+    if let &Yaml::Hash(ref h) = env_headers {
+        for (k, v) in h.iter() {
+            if let (&Yaml::String(ref key), &Yaml::String(ref value)) = (k, v) {
+                result.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+
+    // headers in the request override headers in the environment
+    let request_file_headers = env::get_nested_value(&request_yaml, &["headers"]).unwrap_or(default_hash);
+    if let &Yaml::Hash(ref h) = request_file_headers {
+        for (k, v) in h.iter() {
+            if let (&Yaml::String(ref key), &Yaml::String(ref value)) = (k, v) {
+                result.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+
+    // headers in arguments override everything
+    let arg_headers: Vec<(&str, &str)> =
+        try_error!(args.flag_header.iter().map(|s| request::split_header(s)).collect());
+    for &(k, v) in arg_headers.iter() {
+        result.insert(k.to_string(), v.to_string());
+    }
+    Ok(result)
 }
 
 fn get_string_from_yaml(y: &Yaml, keys: &[&str]) -> String {
