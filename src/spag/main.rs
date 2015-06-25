@@ -177,24 +177,30 @@ fn spag_request_a_file(args: &Args) {
             let method = get_string_from_yaml(&y, &["method"]);
             let uri = get_string_from_yaml(&y, &["uri"]);
 
-            let default_string = &Yaml::String(String::new());
-            let body = env::get_nested_value(&y, &["body"]).unwrap_or(default_string);
+            let body =
+                if !args.flag_data.is_empty() {
+                    args.flag_data.to_string()
+                } else {
+                    if let Some(&Yaml::String(ref b)) = env::get_nested_value(&y, &["body"]) {
+                        b.to_string()
+                    } else {
+                        String::new()
+                    }
+                };
+
+            // env::get_nested_value(&y, &["body"]).unwrap_or(default_string);
             let headers = try_error!(get_headers(args, &y));
 
-            if let &Yaml::String(ref b) = body {
-                // join headers into single strings...which will then be split immediately
-                let str_headers: Vec<String> = headers.iter()
-                    .map(|(k, v)| format!("{}: {}", k, v))
-                    .collect();
-                //println!("{:?}", str_headers);
+            // join headers into single strings...which will be split immediately afterwards
+            let str_headers: Vec<String> = headers.iter()
+                .map(|(k, v)| format!("{}: {}", k, v))
+                .collect();
+            //println!("{:?}", str_headers);
 
-                let mut req = SpagRequest::new(request::method_from_str(&method), endpoint, uri);
-                try_error!(req.add_headers(str_headers.iter()));
-                req.set_body(b.to_string());
-                do_request(&req);
-            } else {
-                error!("BUG: bad type on body or header");
-            }
+            let mut req = SpagRequest::new(request::method_from_str(&method), endpoint, uri);
+            try_error!(req.add_headers(str_headers.iter()));
+            req.set_body(body);
+            do_request(&req);
         },
         Err(msg) => { error!("{}", msg); }
     }

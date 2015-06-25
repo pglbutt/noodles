@@ -303,12 +303,11 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(parse(out), parse(expected))
         self.assertEqual(ret, 0)
 
-    def test_spag_show_single_request(self):
-        out, err, ret = run_spag('request', 'auth.yml', '--show')
+    def test_spag_show_request(self):
+        out, err, ret = run_spag('request', 'show', 'auth.yml')
         self.assertEqual(err, '')
         self.assertEqual(out.strip(),
             textwrap.dedent("""
-            File tests/resources/auth.yml
             method: GET
             uri: /auth
             headers:
