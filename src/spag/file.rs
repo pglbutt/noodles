@@ -36,11 +36,18 @@ pub fn ensure_dir_exists(dir: &str) {
     }
 }
 
+pub fn load_yaml_string(s: &str) -> Result<Yaml, String> {
+    match YamlLoader::load_from_str(s) {
+        Ok(yaml_docs) => { Ok(yaml_docs[0].clone()) }
+        Err(msg) => { Err(format!("Failed to load yaml {:?}\n{}", msg, s)) }
+    }
+}
+
 pub fn load_yaml_file(filename: &str) -> Result<Yaml, String> {
     let s = read_file(filename);
-    match YamlLoader::load_from_str(s.as_str()) {
-        Ok(yaml_docs) => { Ok(yaml_docs[0].clone()) }
-        Err(err) => { Err(format!("Failed to load yaml file {}\n{:?}", filename, err)) }
+    match load_yaml_string(&s) {
+        Err(msg) => { Err(format!("Failed to load yaml file {}\n{:?}", filename, msg)) },
+        x => x,
     }
 }
 
