@@ -35,31 +35,29 @@ pub fn ensure_dir_exists(dir: &str) {
     }
 }
 
-pub fn load_yaml_file(filename: &str) -> Yaml {
+pub fn load_yaml_file(filename: &str) -> Result<Yaml, String> {
     let s = read_file(filename);
     match YamlLoader::load_from_str(s.as_str()) {
-        Ok(yaml_docs) => { yaml_docs[0].clone() }
-        Err(err) => { panic!(format!("Failed to load yaml file {}\n{:?}", filename, err)); }
+        Ok(yaml_docs) => { Ok(yaml_docs[0].clone()) }
+        Err(err) => { Err(format!("Failed to load yaml file {}\n{:?}", filename, err)) }
     }
 }
 
-pub fn walk_dir(dir: &str) -> Vec<PathBuf> {
+pub fn walk_dir(dir: &str) -> Result<Vec<PathBuf>, String> {
     match fs::walk_dir(dir) {
-        Ok(walker) => {
-            walker.map(|x| x.unwrap().path()).collect()
-        },
-        Err(e) => { panic!(format!("Failed to traverse directory {}\n{:?}", dir, e)); }
+        Ok(walker) => { Ok(walker.map(|x| x.unwrap().path()).collect()) },
+        Err(_) => { Err(format!("Failed to traverse directory '{}'", dir)) }
     }
-
 }
 
 /// Walk the given directory, and return all paths ending with the given filename
-pub fn find_matching_files(filename: &str, dir: &str) -> Vec<PathBuf> {
+pub fn find_matching_files(filename: &str, dir: &str) -> Result<Vec<PathBuf>, String> {
     let path = Path::new(filename);
-    walk_dir(dir).iter()
+    let dirs = try!(walk_dir(dir));
+    Ok(dirs.iter()
         .filter(|p| p.ends_with(path))
         .map(|p| p.clone())
-        .collect()
+        .collect())
 }
 
 /// ensure_extension("aaa", "yml") -> "abc.yml"

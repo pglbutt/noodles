@@ -5,6 +5,41 @@ use std::ascii::AsciiExt;
 use std::collections::hash_map::HashMap;
 use curl::http;
 use curl::http::handle::Method;
+use yaml_rust::Yaml;
+use super::file;
+
+
+/// Split "Content-type: application/json" into vec!["Content-type", "application/json"]
+pub fn split_header<'a>(header: &'a str) -> Result<(&'a str, &'a str), String> {
+    // Strip out any spaces and separate the components
+    let h: Vec<&str> = header.split(":").map(|s| s.trim()).collect();
+
+    // If the header didn't have a colon, or had more than 1, it's invalid
+    if h.len() != 2 {
+        Err(format!("Invalid header {:?}", header))
+    } else {
+        Ok((h[0], h[1]))
+    }
+}
+
+pub fn get_request_filename(name: &str, dir: &str) -> Result<String, String> {
+    if name.is_empty() {
+        return Err("No request filename given".to_string());
+    }
+    let options = try!(file::find_matching_files(&file::ensure_extension(name, "yml"), dir));
+    if options.is_empty() {
+        Err(format!("Request file {:?} not found", name))
+    } else if options.len() == 1 {
+        Ok(options[0].to_str().unwrap().to_string())
+    } else {
+        Err(format!("Ambiguous request name. Choose one of {:?}", options))
+    }
+}
+
+pub fn load_request_file(name: &str, dir: &str) -> Result<Yaml, String> {
+    let filename = try!(get_request_filename(name, dir));
+    file::load_yaml_file(&filename)
+}
 
 pub fn method_from_str(s: &str) -> Method {
     match s.to_ascii_lowercase().as_str() {
@@ -64,28 +99,21 @@ impl SpagRequest {
     }
 
     /// Headers is some iterable of Strings like "Content-type: application/json".
-    /// Attempts to split on the ':' and panics if this fails.
-    pub fn add_headers<'a, I: Iterator<Item=&'a String>>(&mut self, headers: I) {
+    /// Attempts to split on the ':' and returns a Result on failure
+    pub fn add_headers<'a, I: Iterator<Item=&'a String>>(&mut self, headers: I) -> Result<(), String> {
         for rawheader in headers {
-            // Strip out any spaces and separate the components
-            let header = rawheader.replace(" ", "");
-            let h: Vec<&str> = header.split(":").collect();
-
-            // If the header didn't have a colon, or had more than 1, it's invalid
-            if h.len() != 2 {
-                panic!(format!("Invalid header {:?}", header));
-            }
-
+            let h = try!(split_header(rawheader));
             let name =
-                if h[0].to_lowercase() == "content-type" {
+                if h.0.to_lowercase() == "content-type" {
                     "Content-Type".to_string()
                 } else {
-                    h[0].to_string()
+                    h.0.to_string()
                 };
-            let value = h[1].to_string();
+            let value = h.1.to_string();
 
             self.headers.insert(name, value);
         }
+        Ok(())
     }
 
     pub fn prepare<'a, 'b>(&'b self, handle: &'a mut http::Handle) -> http::Request<'a, 'b> {

@@ -1,14 +1,50 @@
 extern crate curl;
 extern crate docopt;
 
+use std;
+use std::io::Write;
 use std::collections::hash_map::HashMap;
+use std::path::PathBuf;
 use curl::http::handle::Method;
 use curl::http;
 use docopt::Docopt;
 use super::request::SpagRequest;
 use super::env;
 use super::template;
+use super::request;
+use super::file;
 
+use yaml_rust::Yaml;
+use yaml_rust::yaml::Hash;
+
+/// Formats a string which is printed to stderr, and exits with status code 1
+///
+/// ```
+/// error!("Failed to bring it around town: {}", arg);
+/// ```
+macro_rules! error {
+    ($($arg:tt)*) => ({
+        match writeln!(&mut std::io::stderr(), $($arg)*) {
+            Ok(_) => {},
+            Err(x) => panic!("Unable to write to stderr: {}", x),
+        }
+        std::process::exit(1);
+    })
+}
+
+/// Unwraps a Result like try!(), but calls error!("{}", msg) if the result is Err(msg)
+///
+/// ```
+/// let value = try_error!(result);
+/// ```
+macro_rules! try_error {
+    ($expr:expr) => ({
+        match $expr {
+            Ok(val) => val,
+            Err(err) => error!("{}", err),
+        }
+    })
+}
 
 docopt!(Args derive Debug, "
 Usage:
@@ -19,8 +55,9 @@ Usage:
     spag env activate <environment>
     spag env deactivate
     spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...]
-    spag request <file> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...]
+    spag request list [--dir <dir>]
     spag request show <file>
+    spag request <file> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...] [--dir <dir>]
     spag history
     spag history show <index>
 
@@ -30,6 +67,7 @@ Options:
     -e, --endpoint <endpoint>   Supply the endpoint
     -d, --data <data>           Supply the request body
     -E, --everything            Unset an entire environment
+    --dir <dir>                 The directory containing request files
 
 Arguments:
     <endpoint>      The base url of the service, like 'http://localhost:5000'
@@ -51,6 +89,7 @@ Commands:
     delete          An HTTP DELETE request
     request         Make a request using a predefined file
     request show    Show the specified request file
+    request list    List available request files
     history         Print a list of previously made requests
     history show    Print out a previous request by its index
 ");
@@ -118,14 +157,83 @@ fn spag_history(args: &Args) {
     println!("called spag history");
 }
 
+
 fn spag_request(args: &Args) {
-    println!("key={:?} val={:?}", args.arg_key, args.arg_val);
-    let mut withs: HashMap<&str, &str> = HashMap::new();
-    for (k, v) in args.arg_key.iter().zip(args.arg_val.iter()) {
-        withs.insert(k, v);
+    if args.cmd_list {
+        spag_request_list(args);
+    } else if args.cmd_show {
+        spag_request_show(args);
+    } else {
+        spag_request_a_file(args);
     }
-    let text = template::untemplate(&args.arg_file, &withs, true);
-    println!("untemplated: {:?}", text);
+}
+
+fn spag_request_a_file(args: &Args) {
+    let endpoint = try_error!(get_endpoint(args));
+    let dir = try_error!(get_dir(args));
+
+    match request::load_request_file(&args.arg_file, &dir) {
+        Ok(y) => {
+            let method = get_string_from_yaml(&y, &["method"]);
+            let uri = get_string_from_yaml(&y, &["uri"]);
+
+            let body =
+                if !args.flag_data.is_empty() {
+                    args.flag_data.to_string()
+                } else {
+                    if let Some(&Yaml::String(ref b)) = env::get_nested_value(&y, &["body"]) {
+                        b.to_string()
+                    } else {
+                        String::new()
+                    }
+                };
+
+            // env::get_nested_value(&y, &["body"]).unwrap_or(default_string);
+            let headers = try_error!(get_headers(args, &y));
+
+            // join headers into single strings...which will be split immediately afterwards
+            let str_headers: Vec<String> = headers.iter()
+                .map(|(k, v)| format!("{}: {}", k, v))
+                .collect();
+            //println!("{:?}", str_headers);
+
+            let mut req = SpagRequest::new(request::method_from_str(&method), endpoint, uri);
+            try_error!(req.add_headers(str_headers.iter()));
+            req.set_body(body);
+            do_request(&req);
+        },
+        Err(msg) => { error!("{}", msg); }
+    }
+    //println!("key={:?} val={:?}", args.arg_key, args.arg_val);
+    //let mut withs: HashMap<&str, &str> = HashMap::new();
+    //for (k, v) in args.arg_key.iter().zip(args.arg_val.iter()) {
+    //    withs.insert(k, v);
+    //}
+    //let text = template::untemplate(&args.arg_file, &withs, true);
+    //println!("untemplated: {:?}", text);
+}
+
+fn spag_request_show(args: &Args) {
+    let dir = try_error!(get_dir(args));
+    let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
+    // TODO: read_file() panics. don't do that.
+    let contents = file::read_file(&filename);
+    println!("{}", contents);
+}
+
+fn spag_request_list(args: &Args) {
+    let dir = try_error!(get_dir(args));
+    let filenames = try_error!(file::walk_dir(&dir));
+    let mut yaml_files: Vec<&PathBuf> = filenames.iter()
+        .filter(|p| p.to_str().unwrap().ends_with(".yml"))
+        .collect();
+    yaml_files.sort();
+
+    let current_dir = try_error!(std::env::current_dir());
+    for file in yaml_files.iter() {
+        // relative_from() is unstable
+        println!("{}", file.relative_from(&current_dir).unwrap().to_str().unwrap());
+    }
 }
 
 fn spag_method(args: &Args) {
@@ -136,7 +244,7 @@ fn spag_method(args: &Args) {
     };
     let uri = args.arg_resource.to_string();
     let mut req = SpagRequest::new(method, endpoint, uri);
-    req.add_headers(args.flag_header.iter());
+    try_error!(req.add_headers(args.flag_header.iter()));
     req.set_body(args.flag_data.clone());
     do_request(&req);
 }
@@ -170,5 +278,68 @@ fn get_endpoint(args: &Args) -> Result<String, String> {
         } else {
             Err("Endpoint not set".to_string())
         }
+    }
+}
+
+fn get_dir(args: &Args) -> Result<String, String> {
+    // passing in --dir overrides everything else
+    if !args.flag_dir.is_empty() {
+        Ok(args.flag_dir.to_string())
+    } else {
+        let env = try!(env::load_environment(""));
+
+        if let Some(e) = env["dir"].as_str() {
+            Ok(e.to_string())
+        } else {
+            Err("Request directory not set".to_string())
+        }
+    }
+}
+
+fn get_headers(args: &Args, request_yaml: &Yaml) -> Result<HashMap<String, String>, String> {
+    let default_hash = &Yaml::Hash(Hash::new());
+    let mut result: HashMap<String, String> = HashMap::new();
+
+    // TODO: case insensitivity
+    // start with headers in the environment
+    // be sure not to fail if we fail to load the env.
+    let env = env::load_environment("").unwrap_or(Yaml::Hash(Hash::new()));
+    let env_headers = env::get_nested_value(&env, &["headers"]).unwrap_or(default_hash);
+    if let &Yaml::Hash(ref h) = env_headers {
+        for (k, v) in h.iter() {
+            if let (&Yaml::String(ref key), &Yaml::String(ref value)) = (k, v) {
+                result.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+
+    // headers in the request override headers in the environment
+    let request_file_headers = env::get_nested_value(&request_yaml, &["headers"]).unwrap_or(default_hash);
+    if let &Yaml::Hash(ref h) = request_file_headers {
+        for (k, v) in h.iter() {
+            if let (&Yaml::String(ref key), &Yaml::String(ref value)) = (k, v) {
+                result.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+
+    // headers in arguments override everything
+    let arg_headers: Vec<(&str, &str)> =
+        try_error!(args.flag_header.iter().map(|s| request::split_header(s)).collect());
+    for &(k, v) in arg_headers.iter() {
+        result.insert(k.to_string(), v.to_string());
+    }
+    Ok(result)
+}
+
+fn get_string_from_yaml(y: &Yaml, keys: &[&str]) -> String {
+    match env::get_nested_value(y, keys) {
+        Some(&Yaml::String(ref m)) => { m.to_string() },
+        Some(ref s) => {
+            error!("Invalid value '{:?}' for key {:?} in request file", s, keys);
+        },
+        _ => {
+            error!("Missing key {:?} in request file", keys);
+        },
     }
 }

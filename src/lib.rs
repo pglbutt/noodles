@@ -1,4 +1,5 @@
 #![feature(fs_walk)]
+#![feature(path_relative_from)]
 #![feature(convert)]
 #![feature(debug_builders)]
 #![feature(plugin)]
