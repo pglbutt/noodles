@@ -3,6 +3,7 @@ extern crate curl;
 use std;
 use std::ascii::AsciiExt;
 use std::collections::hash_map::HashMap;
+
 use curl::http;
 use curl::http::handle::Method;
 use yaml_rust::Yaml;
@@ -58,15 +59,15 @@ pub fn method_from_str(s: &str) -> Method {
 
 pub fn method_to_str(m: Method) -> &'static str {
     match m {
-        Method::Options => "Options",
-        Method::Get => "Get",
-        Method::Head => "Head",
-        Method::Post => "Post",
-        Method::Put => "Put",
-        Method::Patch => "Patch",
-        Method::Delete => "Delete",
-        Method::Trace => "Trace",
-        Method::Connect => "Connect",
+        Method::Options => "OPTIONS",
+        Method::Get => "GET",
+        Method::Head => "HEAD",
+        Method::Post => "POST",
+        Method::Put => "PUT",
+        Method::Patch => "PATCH",
+        Method::Delete => "DELETE",
+        Method::Trace => "TRACE",
+        Method::Connect => "CONNECT",
     }
 }
 
