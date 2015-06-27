@@ -18,7 +18,7 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 V1_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v1')
 V2_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v2')
 # SPAG_REMEMBERS_DIR = remembers.SpagRemembers.DIR
-# SPAG_HISTORY_FILE = remembers.SpagHistory.FILENAME
+SPAG_HISTORY_FILE = '.spag/history.yml'
 
 def run_spag(*args):
     """
@@ -50,7 +50,7 @@ class BaseTest(unittest.TestCase):
     @classmethod
     def _rm_history_file(cls):
         try:
-            # os.remove(SPAG_HISTORY_FILE)
+            os.remove(SPAG_HISTORY_FILE)
             pass
         except OSError:
             pass
@@ -671,13 +671,12 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(yaml.load(out)['headers'].get('sandy'), 'tentacle')
 
 
-@unittest.skip('Not Implemented')
 class TestSpagHistory(BaseTest):
 
     def setUp(self):
         super(TestSpagHistory, self).setUp()
         _, _, ret = run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)
-        _, _, ret = run_spag('env', 'set', 'dir=%s' % TEMPLATES_DIR)
+        _, _, ret = run_spag('env', 'set', 'dir', '%s' % TEMPLATES_DIR)
         self.assertEqual(ret, 0)
 
     def test_empty_history(self):
@@ -698,7 +697,7 @@ class TestSpagHistory(BaseTest):
 
     def test_post_method_history(self):
         self._run_test_method_history(
-            lambda: run_spag('post', '/things', '--data={"id": "posty"}'),
+            lambda: run_spag('post', '/things', '-d' ,'{"id": "posty"}'),
             expected='0: POST %s/things\n' % ENDPOINT)
 
     def test_put_method_history(self):
@@ -721,12 +720,31 @@ class TestSpagHistory(BaseTest):
             lambda: run_spag('delete', '/things/wumbo'),
             expected='0: DELETE %s/things/wumbo\n' % ENDPOINT)
 
+    def test_spag_history_show(self):
+        # Make a request
+        _, err, _ = run_spag('get', '/things')
+
+        # check 'spag history show'
+        out, err, ret = run_spag('history', 'show', '0')
+        self.assertEqual(err, '')
+        self.assertIn('GET %s/things' % ENDPOINT, out)
+        self.assertEqual(ret, 0)
+
+    def test_spag_history_show_invalid_id(self):
+        # Make a request
+        _, err, _ = run_spag('get', '/things')
+
+        # Request an invalid ID
+        out, err, ret = run_spag('history', 'show', '9')
+        self.assertEqual(err, 'No request at #9\n')
+        self.assertNotEqual(ret, 0)
+
     def test_multi_history_items(self):
         # make three requests
         _, err, _ = run_spag('get', '/things')
         self.assertEqual(err, '')
-        _, err, _ = run_spag('request', 'template/post_thing',
-                             '--with', 'thing_id=wumbo')
+        _, err, _ = run_spag('post', '/things',
+                             '-d', '{"id": "wumbo"}')
         self.assertEqual(err, '')
         _, err, _ = run_spag('get', '/things/wumbo')
         self.assertEqual(err, '')
@@ -747,3 +765,27 @@ class TestSpagHistory(BaseTest):
         self.assertIn('POST %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
 
+    def test_history_and_requests(self):
+        # make three requests
+        _, err, _ = run_spag('get', '/things')
+        self.assertEqual(err, '')
+        _, err, _ = run_spag('request', 'templates/post_thing')
+        self.assertEqual(err, '')
+        _, err, _ = run_spag('get', '/things/')
+        self.assertEqual(err, '')
+
+        # check `spag history`
+        out, err, ret = run_spag('history')
+        self.assertEqual(err, '')
+        self.assertEqual(out,
+            "0: GET {0}/things/\n"
+            "1: POST {0}/things\n"
+            "2: GET {0}/things\n"
+            .format(ENDPOINT))
+        self.assertEqual(ret, 0)
+
+        # check 'spag history show'
+        out, err, ret = run_spag('history', 'show', '1')
+        self.assertEqual(err, '')
+        self.assertIn('POST %s/things' % ENDPOINT, out)
+        self.assertEqual(ret, 0)

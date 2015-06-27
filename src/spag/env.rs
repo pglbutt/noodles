@@ -1,9 +1,11 @@
 use std::path::Path;
 use std::fs::PathExt;
-use super::file;
+
 use yaml_rust;
 use yaml_rust::Yaml;
 use yaml_rust::YamlEmitter;
+
+use super::file;
 
 const ENV_DIR: &'static str          = ".spag/environments";
 const ACTIVE_ENV_FILE: &'static str  = ".spag/environments/active";
