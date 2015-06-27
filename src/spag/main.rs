@@ -5,14 +5,17 @@ use std;
 use std::io::Write;
 use std::collections::hash_map::HashMap;
 use std::path::PathBuf;
+
 use curl::http::handle::Method;
 use curl::http;
 use docopt::Docopt;
+
 use super::request::SpagRequest;
 use super::env;
 use super::template;
 use super::request;
 use super::file;
+use super::history;
 
 use yaml_rust::Yaml;
 use yaml_rust::yaml::Hash;
@@ -154,7 +157,21 @@ fn spag_env_deactivate(args: &Args) {
 }
 
 fn spag_history(args: &Args) {
-    println!("called spag history");
+    if args.cmd_show {
+        spag_history_show(&args);
+    } else {
+        let short = try_error!(history::list());
+        let mut count = 0;
+        for line in short.iter() {
+            println!("{}: {}", count, line);
+            count += 1;
+        }
+    }
+}
+
+fn spag_history_show(args: &Args) {
+    let out = try_error!(history::get(&args.arg_index));
+    println!("{}", out);
 }
 
 
@@ -255,6 +272,7 @@ fn do_request(req: &SpagRequest) {
     let resp = req.prepare(&mut handle).exec().unwrap();
     // println!("{}", resp);
     println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
+    history::append(req, resp);
 }
 
 fn get_method_from_args(args: &Args) -> Method {
