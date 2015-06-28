@@ -2,7 +2,7 @@ extern crate curl;
 extern crate docopt;
 
 use std;
-use std::io::Write;
+use std::io::prelude::*;
 use std::collections::hash_map::HashMap;
 
 use curl::http::handle::Method;
@@ -13,6 +13,7 @@ use yaml_rust::yaml::Hash;
 use super::request;
 use super::env;
 use super::template;
+use super::yaml_util;
 
 // docopt! gives us a non-public struct. this renames that struct and makes it public.
 pub type Args = ArgsPrivate;
@@ -118,7 +119,7 @@ pub fn get_data(args: &Args) -> Result<String, String> {
 fn get_headers_from_request(request_yaml: &Yaml) -> Result<HashMap<String, String>, String> {
     let default_hash = &Yaml::Hash(Hash::new());
     let mut result: HashMap<String, String> = HashMap::new();
-    let request_file_headers = env::get_nested_value(&request_yaml, &["headers"]).unwrap_or(default_hash);
+    let request_file_headers = yaml_util::get_nested_value(&request_yaml, &["headers"]).unwrap_or(default_hash);
     if let &Yaml::Hash(ref h) = request_file_headers {
         for (k, v) in h.iter() {
             if let (&Yaml::String(ref key), &Yaml::String(ref value)) = (k, v) {
@@ -135,7 +136,7 @@ fn get_headers_from_environment() -> Result<HashMap<String, String>, String> {
     // TODO: case insensitivity
     // be sure not to fail if we fail to load the env.
     let env = env::load_environment("").unwrap_or(Yaml::Hash(Hash::new()));
-    let env_headers = env::get_nested_value(&env, &["headers"]).unwrap_or(default_hash);
+    let env_headers = yaml_util::get_nested_value(&env, &["headers"]).unwrap_or(default_hash);
     if let &Yaml::Hash(ref h) = env_headers {
         for (k, v) in h.iter() {
             if let (&Yaml::String(ref key), &Yaml::String(ref value)) = (k, v) {
@@ -182,26 +183,12 @@ pub fn resolve_headers_no_request_file(args: &Args) -> Result<Vec<String>, Strin
     resolve_headers(args, &Yaml::Hash(Hash::new()))
 }
 
-pub fn get_string_from_yaml(y: &Yaml, keys: &[&str]) -> String {
-    match env::get_nested_value(y, keys) {
-        Some(&Yaml::String(ref m)) => { m.to_string() },
-        Some(ref s) => {
-            error!("Invalid value '{:?}' for key {:?} in request file", s, keys);
-        },
-        _ => {
-            error!("Missing key {:?} in request file", keys);
-        },
-    }
-}
-
 pub fn get_withs(args: &Args) -> HashMap<String, String> {
-//    println!("key={:?} val={:?}", args.arg_key, args.arg_val);
     let use_shortcuts = true;
     let mut withs = HashMap::new();
     for (k, v) in args.arg_key.iter().zip(args.arg_val.iter()) {
         let v = try_error!(template::untemplate(&v, &HashMap::new(), use_shortcuts));
         withs.insert(k.to_string(), v.to_string());
     }
-//    println!("{:?}", withs);
     withs
 }

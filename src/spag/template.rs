@@ -3,6 +3,7 @@ use std::collections::hash_map::HashMap;
 use yaml_rust::Yaml;
 
 use super::env;
+use super::yaml_util;
 
 const VALID_ITEM_NAME_CHARS: &'static str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_";
@@ -68,7 +69,7 @@ fn substitute<'a>(options: &Vec<Token<'a>>, withs: &HashMap<&str, &str>
             },
             &Token::Env(name, ref key_path) => {
                 if let Ok(y) = env::load_environment(name) {
-                    if let Some(&Yaml::String(ref val)) = env::get_nested_value(&y, &key_path) {
+                    if let Some(&Yaml::String(ref val)) = yaml_util::get_nested_value(&y, &key_path) {
                         return Ok(val.to_string());
                     }
                 }

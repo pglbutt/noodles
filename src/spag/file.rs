@@ -7,19 +7,16 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::io::BufReader;
 
-use yaml_rust::YamlLoader;
-use yaml_rust::Yaml;
-
-pub fn read_file(filename: &str) -> String {
+pub fn read_file(filename: &str) -> Result<String, String> {
     if !Path::new(filename).exists() {
-        panic!(format!("File {} does not exist", filename));
+        return Err(format!("File {} does not exist", filename));
     }
     let file = File::open(filename).unwrap();
     let mut buf = BufReader::new(&file);
 
     let mut s = String::new();
     buf.read_to_string(&mut s).unwrap();
-    s
+    Ok(s)
 }
 
 pub fn write_file(filename: &str, contents: &str) {
@@ -33,21 +30,6 @@ pub fn ensure_dir_exists(dir: &str) {
         fs::create_dir_all(path).unwrap();
     } else if path.exists() && !path.is_dir() {
         panic!(format!("Attempted to create directory {:?} but found a regular file", path));
-    }
-}
-
-pub fn load_yaml_string(s: &str) -> Result<Yaml, String> {
-    match YamlLoader::load_from_str(s) {
-        Ok(yaml_docs) => { Ok(yaml_docs[0].clone()) }
-        Err(msg) => { Err(format!("Failed to load yaml {:?}\n{}", msg, s)) }
-    }
-}
-
-pub fn load_yaml_file(filename: &str) -> Result<Yaml, String> {
-    let s = read_file(filename);
-    match load_yaml_string(&s) {
-        Err(msg) => { Err(format!("Failed to load yaml file {}\n{:?}", filename, msg)) },
-        x => x,
     }
 }
 

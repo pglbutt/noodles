@@ -36,6 +36,7 @@ pub mod env;
 pub mod template;
 pub mod history;
 pub mod args;
+pub mod yaml_util;
 
 #[cfg(test)]
 mod test;

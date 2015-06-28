@@ -2,7 +2,7 @@ extern crate curl;
 extern crate docopt;
 
 use std;
-use std::io::Write;
+use std::io::prelude::*;
 use std::collections::hash_map::HashMap;
 use std::path::PathBuf;
 
@@ -17,6 +17,7 @@ use super::history;
 use super::request;
 use super::request::SpagRequest;
 use super::template;
+use super::yaml_util;
 
 
 pub fn main() {
@@ -44,7 +45,7 @@ fn spag_env(args: &Args) {
     } else if args.cmd_deactivate {
         spag_env_deactivate();
     } else {
-        panic!("BUG: Invalid command");
+        error!("BUG: Invalid command");
     }
 }
 
@@ -127,14 +128,14 @@ fn spag_request_a_file(args: &Args) {
 
     // load the request file, but untemplate it first
     let request_filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
-    let yaml_string = file::read_file(&request_filename);
+    let yaml_string = try_error!(file::read_file(&request_filename));
     let use_shortcuts = false;
     let yaml_string = try_error!(template::untemplate(&yaml_string, &withs, use_shortcuts));
 
-    match file::load_yaml_string(&yaml_string) {
+    match yaml_util::load_yaml_string(&yaml_string) {
         Ok(y) => {
-            let method = args::get_string_from_yaml(&y, &["method"]);
-            let uri = args::get_string_from_yaml(&y, &["uri"]);
+            let method = try_error!(yaml_util::get_value_as_string(&y, &["method"]));
+            let uri = try_error!(yaml_util::get_value_as_string(&y, &["uri"]));
 
             // the request body can be overridden by the --data flag.
             //
@@ -145,7 +146,7 @@ fn spag_request_a_file(args: &Args) {
                 if !data.is_empty() {
                     data
                 } else {
-                    if let Some(&Yaml::String(ref b)) = env::get_nested_value(&y, &["body"]) {
+                    if let Some(&Yaml::String(ref b)) = yaml_util::get_nested_value(&y, &["body"]) {
                         b.to_string()
                     } else {
                         String::new()
@@ -166,8 +167,7 @@ fn spag_request_a_file(args: &Args) {
 fn spag_request_show(args: &Args) {
     let dir = try_error!(args::get_dir(args));
     let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
-    // TODO: read_file() panics. don't do that.
-    let contents = file::read_file(&filename);
+    let contents = try_error!(file::read_file(&filename));
     println!("{}", contents);
 }
 
