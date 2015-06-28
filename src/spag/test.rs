@@ -1,4 +1,4 @@
-use super::env;
+use super::yaml_util;
 use super::file;
 use super::template;
 use super::template::Token;
@@ -9,14 +9,14 @@ use std::collections::hash_map::HashMap;
     let mut doc = &mut YamlLoader::load_from_str("{}").unwrap()[0];
 
     // check setting values in maps that don't exist
-    env::set_nested_value(doc, &["mini"], "wumbo");
-    env::set_nested_value(doc, &["a", "b", "c"], "ABC");
+    yaml_util::set_nested_value(doc, &["mini"], "wumbo");
+    yaml_util::set_nested_value(doc, &["a", "b", "c"], "ABC");
     assert!(doc["mini"].as_str().unwrap() == "wumbo");
     assert!(doc["a"]["b"]["c"].as_str().unwrap() == "ABC");
 
     // check overwriting existing entries
-    env::set_nested_value(doc, &["mini"], "X");
-    env::set_nested_value(doc, &["a", "b", "c"], "XYZ");
+    yaml_util::set_nested_value(doc, &["mini"], "X");
+    yaml_util::set_nested_value(doc, &["a", "b", "c"], "XYZ");
     assert!(doc["mini"].as_str().unwrap() == "X");
     assert!(doc["a"]["b"]["c"].as_str().unwrap() == "XYZ");
 }
@@ -28,14 +28,14 @@ use std::collections::hash_map::HashMap;
     //      - content-type: application/json
     //      - accept: application/json";
     let mut doc = &mut YamlLoader::load_from_str("{}").unwrap()[0];
-    env::set_nested_value(doc, &["foo"], "bar");
-    env::set_nested_value(doc, &["spongebob"], "squarepants");
-    env::set_nested_value(doc, &["headers", "content-type"], "application/json");
-    env::set_nested_value(doc, &["headers", "accept"], "application/json");
+    yaml_util::set_nested_value(doc, &["foo"], "bar");
+    yaml_util::set_nested_value(doc, &["spongebob"], "squarepants");
+    yaml_util::set_nested_value(doc, &["headers", "content-type"], "application/json");
+    yaml_util::set_nested_value(doc, &["headers", "accept"], "application/json");
 
     // check unsetting nested and unnested values
-    env::unset_nested_value(doc, &["headers", "accept"]);
-    env::unset_nested_value(doc, &["foo"]);
+    yaml_util::unset_nested_value(doc, &["headers", "accept"]);
+    yaml_util::unset_nested_value(doc, &["foo"]);
     // Access non-exist node by Index trait will return BadValue.
     assert!(doc["foo"].is_badvalue() == true);
     assert!(doc["headers"]["accept"].is_badvalue() == true);
@@ -77,11 +77,11 @@ use std::collections::hash_map::HashMap;
 
 #[test] fn test_tokenize_text_list_shortcut_together() {
     let text =
-        "  pglbutt   @[ env ].wumbo.thing_1234567890/poo{{last.response.body.id}}\t\nhello \t";
+        "  pglbutt   @[ yaml_util ].wumbo.thing_1234567890/poo{{last.response.body.id}}\t\nhello \t";
     let tokens = template::Tokenizer::new(text, true).tokenize().unwrap();
     assert_eq!(tokens, vec![
         Token::Text("  pglbutt   "),
-        Token::Substitute(vec![ Token::Env("env", vec!["wumbo", "thing_1234567890"]) ]),
+        Token::Substitute(vec![ Token::Env("yaml_util", vec!["wumbo", "thing_1234567890"]) ]),
         Token::Text("/poo"),
         Token::Substitute(vec![ Token::Request("last", vec!["response", "body", "id"]) ]),
         Token::Text("\t\nhello \t"),
