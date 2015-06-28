@@ -82,8 +82,42 @@ fn substitute<'a>(options: &Vec<Token<'a>>, withs: &HashMap<&str, &str>
             _ => { return Err("BUG: Saw invalid enum option in substitute".to_string()); },
         }
     }
-    // TODO: better error message here
-    Err("substitution failed".to_string())
+    let s = try!(options_to_string(options));
+    Err(format!("Failed to substitute for {}", s))
+}
+
+fn options_to_string<'a>(options: &Vec<Token<'a>>) -> Result<String, String> {
+    // build a sensible error message from the options
+    let mut result = String::from("{{");
+    for option in options {
+        match option {
+            &Token::With(with) => {
+                result.push_str(&format!(" {},", with));
+            },
+            &Token::Env(name, ref key_path) => {
+                result.push_str(&format!(" [{}]", name));
+                for key in key_path {
+                    result.push_str(&format!(".{}", key));
+                }
+                result.push_str(",");
+            },
+            &Token::Request(name, ref key_path) => {
+                result.push_str(&format!(" {}", name));
+                for key in key_path {
+                    result.push_str(&format!(".{}", key));
+                }
+                result.push_str(",");
+            },
+            &Token::DefaultVal(val) => {
+                if result.ends_with(',') { result.pop(); }
+                result.push_str(&format!(": {}", val));
+            },
+            _ => { return Err("BUG: Saw invalid enum option in substitute".to_string()); },
+        }
+    }
+    if result.ends_with(',') { result.pop(); }
+    result.push_str(" }}");
+    Ok(result)
 }
 
 pub struct Tokenizer<'a> {

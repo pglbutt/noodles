@@ -129,7 +129,20 @@ fn spag_env(args: &Args) {
 }
 
 fn spag_env_set(args: &Args) {
-    env::set_in_environment(&args.arg_environment, &args.arg_key, &args.arg_val);
+    let use_shortcuts = true;
+    let withs: HashMap<String, String> = get_withs(args);
+    let withs: HashMap<&str, &str> = withs.iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+
+    // untemplate all of the values
+    let mut vals: Vec<String> = Vec::new();
+    for v in &args.arg_val {
+        let value = try_error!(template::untemplate(v.as_str(), &withs, use_shortcuts));
+        vals.push(value);
+    }
+
+    env::set_in_environment(&args.arg_environment, &args.arg_key, &vals);
     env::show_environment(&args.arg_environment);
 }
 
@@ -174,7 +187,6 @@ fn spag_history_show(args: &Args) {
     println!("{}", out);
 }
 
-
 fn spag_request(args: &Args) {
     if args.cmd_list {
         spag_request_list(args);
@@ -188,15 +200,30 @@ fn spag_request(args: &Args) {
 fn spag_request_a_file(args: &Args) {
     let endpoint = try_error!(get_endpoint(args));
     let dir = try_error!(get_dir(args));
+    let withs: HashMap<String, String> = get_withs(args);
+    let withs: HashMap<&str, &str> = withs.iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
 
-    match request::load_request_file(&args.arg_file, &dir) {
+    // load the request file, but untemplate it first
+    let request_filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
+    let yaml_string = file::read_file(&request_filename);
+    let use_shortcuts = false;
+    let yaml_string = try_error!(template::untemplate(&yaml_string, &withs, use_shortcuts));
+
+    match file::load_yaml_string(&yaml_string) {
         Ok(y) => {
             let method = get_string_from_yaml(&y, &["method"]);
             let uri = get_string_from_yaml(&y, &["uri"]);
 
+            // the request body can be overridden by the --data flag.
+            //
+            // todo? because docopt defaults to an empty string if the data flag isn't given,
+            // we can't tell if the user is trying to override the body to be empty.
+            let data = try_error!(get_data(args));
             let body =
-                if !args.flag_data.is_empty() {
-                    args.flag_data.to_string()
+                if !data.is_empty() {
+                    data
                 } else {
                     if let Some(&Yaml::String(ref b)) = env::get_nested_value(&y, &["body"]) {
                         b.to_string()
@@ -205,29 +232,15 @@ fn spag_request_a_file(args: &Args) {
                     }
                 };
 
-            // env::get_nested_value(&y, &["body"]).unwrap_or(default_string);
-            let headers = try_error!(get_headers(args, &y));
-
-            // join headers into single strings...which will be split immediately afterwards
-            let str_headers: Vec<String> = headers.iter()
-                .map(|(k, v)| format!("{}: {}", k, v))
-                .collect();
-            //println!("{:?}", str_headers);
+            let headers = try_error!(resolve_headers(args, &y));
 
             let mut req = SpagRequest::new(request::method_from_str(&method), endpoint, uri);
-            try_error!(req.add_headers(str_headers.iter()));
+            try_error!(req.add_headers(headers.iter()));
             req.set_body(body);
             do_request(&req);
         },
         Err(msg) => { error!("{}", msg); }
     }
-    //println!("key={:?} val={:?}", args.arg_key, args.arg_val);
-    //let mut withs: HashMap<&str, &str> = HashMap::new();
-    //for (k, v) in args.arg_key.iter().zip(args.arg_val.iter()) {
-    //    withs.insert(k, v);
-    //}
-    //let text = template::untemplate(&args.arg_file, &withs, true);
-    //println!("untemplated: {:?}", text);
 }
 
 fn spag_request_show(args: &Args) {
@@ -254,23 +267,28 @@ fn spag_request_list(args: &Args) {
 }
 
 fn spag_method(args: &Args) {
+    // untemplate the resource
+    let use_shortcuts = true;
+    let withs: HashMap<String, String> = get_withs(args);
+    let withs: HashMap<&str, &str> = withs.iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+    let resource = try_error!(template::untemplate(&args.arg_resource, &withs, use_shortcuts));
+
     let method = get_method_from_args(args);
-    let endpoint = match get_endpoint(args) {
-        Ok(e) => { e },
-        Err(msg) => { println!("{}", msg); return; }
-    };
-    let uri = args.arg_resource.to_string();
-    let mut req = SpagRequest::new(method, endpoint, uri);
-    try_error!(req.add_headers(args.flag_header.iter()));
-    req.set_body(args.flag_data.clone());
+    let endpoint = try_error!(get_endpoint(args));
+    let mut req = SpagRequest::new(method, endpoint, resource);
+    let headers = try_error!(resolve_headers_no_request_file(args));
+    try_error!(req.add_headers(headers.iter()));
+
+    let body = try_error!(get_data(args));
+    req.set_body(body);
     do_request(&req);
 }
 
 fn do_request(req: &SpagRequest) {
-    // println!("{:?}", req);
     let mut handle = http::handle();
     let resp = req.prepare(&mut handle).exec().unwrap();
-    // println!("{}", resp);
     println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
     history::append(req, resp);
 }
@@ -314,12 +332,33 @@ fn get_dir(args: &Args) -> Result<String, String> {
     }
 }
 
-fn get_headers(args: &Args, request_yaml: &Yaml) -> Result<HashMap<String, String>, String> {
+fn get_data(args: &Args) -> Result<String, String> {
+    let use_shortcuts = true;
+    let withs: HashMap<String, String> = get_withs(args);
+    let withs: HashMap<&str, &str> = withs.iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+    Ok(try!(template::untemplate(&args.flag_data, &withs, use_shortcuts)))
+}
+
+fn get_headers_from_request(request_yaml: &Yaml) -> Result<HashMap<String, String>, String> {
     let default_hash = &Yaml::Hash(Hash::new());
     let mut result: HashMap<String, String> = HashMap::new();
+    let request_file_headers = env::get_nested_value(&request_yaml, &["headers"]).unwrap_or(default_hash);
+    if let &Yaml::Hash(ref h) = request_file_headers {
+        for (k, v) in h.iter() {
+            if let (&Yaml::String(ref key), &Yaml::String(ref value)) = (k, v) {
+                result.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+    Ok(result)
+}
 
+fn get_headers_from_environment() -> Result<HashMap<String, String>, String> {
+    let default_hash = &Yaml::Hash(Hash::new());
+    let mut result: HashMap<String, String> = HashMap::new();
     // TODO: case insensitivity
-    // start with headers in the environment
     // be sure not to fail if we fail to load the env.
     let env = env::load_environment("").unwrap_or(Yaml::Hash(Hash::new()));
     let env_headers = env::get_nested_value(&env, &["headers"]).unwrap_or(default_hash);
@@ -330,24 +369,43 @@ fn get_headers(args: &Args, request_yaml: &Yaml) -> Result<HashMap<String, Strin
             }
         }
     }
+    Ok(result)
+}
 
-    // headers in the request override headers in the environment
-    let request_file_headers = env::get_nested_value(&request_yaml, &["headers"]).unwrap_or(default_hash);
-    if let &Yaml::Hash(ref h) = request_file_headers {
-        for (k, v) in h.iter() {
-            if let (&Yaml::String(ref key), &Yaml::String(ref value)) = (k, v) {
-                result.insert(key.to_string(), value.to_string());
-            }
-        }
-    }
-
-    // headers in arguments override everything
+fn get_headers_from_args(args: &Args) -> Result<HashMap<String, String>, String> {
+    let use_shortcuts = true;
+    let mut result: HashMap<String, String> = HashMap::new();
     let arg_headers: Vec<(&str, &str)> =
         try_error!(args.flag_header.iter().map(|s| request::split_header(s)).collect());
     for &(k, v) in arg_headers.iter() {
+        let v = try_error!(template::untemplate(&v, &HashMap::new(), use_shortcuts));
         result.insert(k.to_string(), v.to_string());
     }
     Ok(result)
+}
+
+/// Build a single list of headers from the environment, the request yaml, and arguments.
+fn resolve_headers(args: &Args, request_yaml: &Yaml) -> Result<Vec<String>, String> {
+    let request_headers = try!(get_headers_from_request(request_yaml));
+    let env_headers = try!(get_headers_from_environment());
+    let arg_headers = try!(get_headers_from_args(args));
+    let mut result: HashMap<String, String> = HashMap::new();
+    // start with headers in the environment
+    result.extend(env_headers);
+    // headers in the request override headers in the environment
+    result.extend(request_headers);
+    // headers in arguments override everything
+    result.extend(arg_headers);
+
+    // format headers as "<key>: <val>"
+    let str_headers: Vec<String> = result.iter()
+        .map(|(k, v)| format!("{}: {}", k, v))
+        .collect();
+    Ok(str_headers)
+}
+
+fn resolve_headers_no_request_file(args: &Args) -> Result<Vec<String>, String> {
+    resolve_headers(args, &Yaml::Hash(Hash::new()))
 }
 
 fn get_string_from_yaml(y: &Yaml, keys: &[&str]) -> String {
@@ -360,4 +418,16 @@ fn get_string_from_yaml(y: &Yaml, keys: &[&str]) -> String {
             error!("Missing key {:?} in request file", keys);
         },
     }
+}
+
+fn get_withs(args: &Args) -> HashMap<String, String> {
+//    println!("key={:?} val={:?}", args.arg_key, args.arg_val);
+    let use_shortcuts = true;
+    let mut withs = HashMap::new();
+    for (k, v) in args.arg_key.iter().zip(args.arg_val.iter()) {
+        let v = try_error!(template::untemplate(&v, &HashMap::new(), use_shortcuts));
+        withs.insert(k.to_string(), v.to_string());
+    }
+//    println!("{:?}", withs);
+    withs
 }

@@ -449,13 +449,12 @@ class TestSpagRemembers(BaseTest):
 
         self.assertTrue(os.path.exists(filepath))
 
-@unittest.skip('Not Implemented')
 class TestSpagTemplate(BaseTest):
 
     def setUp(self):
         super(TestSpagTemplate, self).setUp()
         assert run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)[2] == 0
-        assert run_spag('env', 'set', 'dir=%s' % TEMPLATES_DIR)
+        assert run_spag('env', 'set', 'dir', '%s' % TEMPLATES_DIR)
 
     def _post_thing(self, thing_id):
         """post a thing to set last.response.body.id"""
@@ -469,30 +468,30 @@ class TestSpagTemplate(BaseTest):
 
     def test_spag_template_with_keyword(self):
         out, err, ret = run_spag('request', 'templates/post_thing',
-                                 '--with', 'thing_id=wumbo')
+                                 '--with', 'thing_id', 'wumbo')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"id": "wumbo"})
         self.assertEqual(ret, 0)
 
     def test_spag_template_no_value_given(self):
         out, err, ret = run_spag('request', 'templates/post_thing')
-        self.assertEqual(err, 'Failed to substitute for {{thing_id}}\n')
+        self.assertEqual(err, 'Failed to substitute for {{ thing_id }}\n')
         self.assertEqual(out, '')
         self.assertEqual(ret, 1)
 
     def test_spag_template_empty_value(self):
         # we're allowed to substitute an empty string
         out, err, ret = run_spag('request', 'templates/post_thing',
-                                 '--with', 'thing_id=')
+                                 '--with', 'thing_id', '')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"id": ""})
         self.assertEqual(ret, 0)
 
     def test_spag_template_multiple_with_keywords(self):
         out, err, ret = run_spag('request', 'templates/headers',
-                                 '--with', 'hello=hello world',
-                                 '--with', 'body_id=poo',
-                                 '--with', 'thingy=my thing')
+                                 '--with', 'hello', 'hello world',
+                                 '--with', 'body_id', 'poo',
+                                 '--with', 'thingy', 'my thing')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out),
             { "Body-Id": "poo",
@@ -500,6 +499,7 @@ class TestSpagTemplate(BaseTest):
               "Thingy": "my thing"  })
         self.assertEqual(ret, 0)
 
+    @unittest.skip("Depends on remembered requests")
     def test_spag_template_alternative_items(self):
         # post a thing to set last.response.body.id
         self._post_thing('abcde')
@@ -507,8 +507,8 @@ class TestSpagTemplate(BaseTest):
         # the body-id in headers.yml is filled in using last.response.body.id
         # thingy is filled in using 'thingy2' insteada of 'thingy'
         out, err, ret = run_spag('request', 'templates/headers',
-                                 '--with', 'hello=hello world',
-                                 '--with', 'thingy2=scooby doo')
+                                 '--with', 'hello', 'hello world',
+                                 '--with', 'thingy2', 'scooby doo')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out),
             { "Body-Id": "abcde",
@@ -523,9 +523,9 @@ class TestSpagTemplate(BaseTest):
         # we want to see that the body-id is taken from the --with arg and not
         # from last.response.body.id
         out, err, ret = run_spag('request', 'templates/headers',
-                                 '--with', 'hello=hello world',
-                                 '--with', 'body_id=wumbo',
-                                 '--with', 'thingy2=scooby doo')
+                                 '--with', 'hello', 'hello world',
+                                 '--with', 'body_id', 'wumbo',
+                                 '--with', 'thingy2', 'scooby doo')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out),
             { "Body-Id": "wumbo",
@@ -533,6 +533,7 @@ class TestSpagTemplate(BaseTest):
               "Thingy": "scooby doo" })
         self.assertEqual(ret, 0)
 
+    @unittest.skip("Depends on remembered requests")
     def test_spag_template_shortshortcut(self):
         # post a thing to set last.response.body.id
         self._post_thing('wumbo')
@@ -542,6 +543,7 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(json.loads(out), {"id": "wumbo"})
         self.assertEqual(ret, 0)
 
+    @unittest.skip("Depends on remembered requests")
     def test_spag_template_shortcut(self):
         # post a thing to set last.response.body.id
         self._post_thing('wumbo')
@@ -556,21 +558,21 @@ class TestSpagTemplate(BaseTest):
 
         # with no --with args given, the get_default template should
         # default to "mydefaultid"
-        out, err, ret = run_spag('request', 'template/get_default')
+        out, err, ret = run_spag('request', 'templates/get_default')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"id": "mydefaultid"})
         self.assertEqual(ret, 0)
 
     def test_spag_template_shortcut_in_with(self):
-        _, err, ret = run_spag('env', 'set', 'poke=pika')
-        out, err, ret = run_spag('request', 'template/post_thing',
-                                 '--with', 'thing_id=@[default].poke')
+        _, err, ret = run_spag('env', 'set', 'poke', 'pika')
+        out, err, ret = run_spag('request', 'templates/post_thing',
+                                 '--with', 'thing_id', '@[default].poke')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"id": "pika"})
         self.assertEqual(ret, 0)
 
     def test_spag_template_shortcut_in_data(self):
-        _, err, ret = run_spag('env', 'set', 'poke=pika')
+        _, err, ret = run_spag('env', 'set', 'poke', 'pika')
         out, err, ret = run_spag('post', '/things',
                                  '--data', '{"id": "@[default].poke"}',
                                  '-H', 'Content-type: application/json',
@@ -580,7 +582,7 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(ret, 0)
 
     def test_spag_template_shortcut_in_header(self):
-        _, err, ret = run_spag('env', 'set', 'poke=pika')
+        _, err, ret = run_spag('env', 'set', 'poke', 'pika')
         out, err, ret = run_spag('get', '/headers', '-H', 'Poke: @[].poke')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"Poke": "pika"})
@@ -588,9 +590,9 @@ class TestSpagTemplate(BaseTest):
 
     def test_spag_template_from_default_and_active_environments(self):
         _, err, ret = run_spag('env', 'set',
-                               'mini=barnacle boy',
-                               'wumbo=mermaid man',
-                               'thing=scooby doo')
+                               'mini', 'barnacle boy',
+                               'wumbo', 'mermaid man',
+                               'thing', 'scooby doo')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
@@ -611,18 +613,19 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(ret, 0)
 
     def test_spag_template_shortcut_from_default_environment(self):
-        _, err, ret = run_spag('request', 'template/post_thing',
-                               '--with', 'thing_id=wumbo')
+        _, err, ret = run_spag('request', 'templates/post_thing',
+                               '--with', 'thing_id', 'wumbo')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
         # set thing_id and lookup thing_id in the env using shortcut syntax
-        run_spag('env', 'set', 'thing_id=wumbo')
+        run_spag('env', 'set', 'thing_id', 'wumbo')
         out, err, ret = run_spag('get', '/things/@[default].thing_id')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), { "id": "wumbo" })
         self.assertEqual(ret, 0)
 
+    @unittest.skip("Depends on remembered requests")
     def test_spag_template_list_indexing(self):
         # setup the last request to have a list in it
         self._post_thing('mini')
@@ -633,6 +636,7 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(json.loads(out), {"id": "mini"})
         self.assertEqual(ret, 0)
 
+    @unittest.skip("Depends on remembered requests")
     def test_spag_template_list_index_out_of_bounds(self):
         # setup the last request to have a list in it
         self._post_thing('mini')
@@ -642,6 +646,7 @@ class TestSpagTemplate(BaseTest):
         self.assertIn('Index 1 out of bounds while looking up response.body.things.1.id', err)
         self.assertEqual(ret, 1)
 
+    @unittest.skip("Depends on remembered requests")
     def test_spag_template_list_w_invalid_index(self):
         # setup the last request to have a list in it
         self._post_thing('mini')
@@ -653,19 +658,13 @@ class TestSpagTemplate(BaseTest):
 
     def test_spag_templated_env_set(self):
         # set a value we'll refer to in a template parameter
-        out, err, ret = run_spag('env', 'set', 'squidward=tentacle')
+        out, err, ret = run_spag('env', 'set', 'squidward', 'tentacle')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertEqual(yaml.load(out).get('squidward'), 'tentacle')
 
-        # check we can use template params with regular environment variables
-        out, err, ret = run_spag('env', 'set', 'patrick=@[].squidward')
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-        self.assertEqual(yaml.load(out).get('patrick'), 'tentacle')
-
         # check we can use template params when setting headers in the env
-        out, err, ret = run_spag('env', 'set', '-H', 'sandy: @[].patrick')
+        out, err, ret = run_spag('env', 'set', 'headers.sandy', '@[].squidward')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertEqual(yaml.load(out)['headers'].get('sandy'), 'tentacle')
@@ -769,7 +768,8 @@ class TestSpagHistory(BaseTest):
         # make three requests
         _, err, _ = run_spag('get', '/things')
         self.assertEqual(err, '')
-        _, err, _ = run_spag('request', 'templates/post_thing')
+        _, err, _ = run_spag('request', 'templates/post_thing',
+                             '--with', 'thing_id', 'wumbo')
         self.assertEqual(err, '')
         _, err, _ = run_spag('get', '/things/')
         self.assertEqual(err, '')
