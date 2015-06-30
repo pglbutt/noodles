@@ -14,6 +14,7 @@ use super::args::Args;
 use super::env;
 use super::file;
 use super::history;
+use super::remember;
 use super::request;
 use super::request::SpagRequest;
 use super::template;
@@ -210,6 +211,7 @@ fn do_request(req: &SpagRequest) {
     let mut handle = http::handle();
     let resp = req.prepare(&mut handle).exec().unwrap();
     println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
-    try_error!(history::append(req, resp));
+    try_error!(history::append(req, &resp));
+    try_error!(remember::remember(req, &resp));
 }
 

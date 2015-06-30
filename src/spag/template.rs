@@ -4,6 +4,7 @@ use yaml_rust::Yaml;
 
 use super::env;
 use super::yaml_util;
+use super::remember;
 
 const VALID_ITEM_NAME_CHARS: &'static str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_";
@@ -69,13 +70,25 @@ fn substitute<'a>(options: &Vec<Token<'a>>, withs: &HashMap<&str, &str>
             },
             &Token::Env(name, ref key_path) => {
                 if let Ok(y) = env::load_environment(name) {
-                    if let Some(&Yaml::String(ref val)) = yaml_util::get_nested_value(&y, &key_path) {
+                    if let Some(&Yaml::String(ref val)) = yaml_util::get_nested_value(&y, key_path) {
                         return Ok(val.to_string());
                     }
                 }
             },
             &Token::Request(name, ref key_path) => {
-                return Err("substitution not implemented for requests".to_string());
+                // return Err("substitution not implemented for requests".to_string());
+                // println!("sub Request {}.{:?}", name, key_path);
+                let poo = remember::find_remembered_key(name, key_path);
+                // println!("{:?}", poo);
+                if let Ok(s) = poo {
+                  //  println!("got value '{}'", s);
+                    return Ok(s.to_string());
+                }
+                //if let Ok(y) = remember::load_remembered_request(name) {
+                //    if let Some(&Yaml::String(ref val)) = yaml_util::get_nested_value(&y, key_path) {
+                //        return Ok(val.to_string());
+                //    }
+                //}
             },
             &Token::DefaultVal(val) => {
                 return Ok(val.to_string());
