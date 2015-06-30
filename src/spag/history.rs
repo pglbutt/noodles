@@ -3,12 +3,11 @@ use std::path::Path;
 use std::str::from_utf8;
 
 use curl::http;
-use yaml_rust::YamlEmitter;
 use yaml_rust::YamlLoader;
 use yaml_rust::Yaml;
 
 use super::file;
-use super::env;
+use super::yaml_util;
 use super::request::SpagRequest;
 
 const HISTORY_FILE: &'static str = ".spag/history.yml";
@@ -19,7 +18,7 @@ pub fn append(req: &SpagRequest, resp: http::Response) -> Result<(), String> {
         file::write_file(HISTORY_FILE, "[]");
     }
 
-    let mut y = &mut try!(file::load_yaml_file(&HISTORY_FILE));
+    let mut y = &mut try!(yaml_util::load_yaml_file(&HISTORY_FILE));
 
     if let Yaml::Array(ref mut arr) = *y {
 
@@ -34,33 +33,26 @@ pub fn append(req: &SpagRequest, resp: http::Response) -> Result<(), String> {
         let inner_y = &mut outer_y[0];
 
         // Add the request data
-        env::set_nested_value(inner_y, &["request", "verb"], req.get_method_string());
-        env::set_nested_value(inner_y, &["request", "uri"], req.uri.as_str());
-        env::set_nested_value(inner_y, &["request", "endpoint"], req.endpoint.as_str());
-        env::set_nested_value(inner_y, &["request", "body"], req.body.as_str());
+        yaml_util::set_nested_value(inner_y, &["request", "verb"], req.get_method_string());
+        yaml_util::set_nested_value(inner_y, &["request", "uri"], req.uri.as_str());
+        yaml_util::set_nested_value(inner_y, &["request", "endpoint"], req.endpoint.as_str());
+        yaml_util::set_nested_value(inner_y, &["request", "body"], req.body.as_str());
 
         for (key, value) in &req.headers {
-            env::set_nested_value(inner_y, &["request", "headers", key], value.as_str());
+            yaml_util::set_nested_value(inner_y, &["request", "headers", key], value.as_str());
         }
 
         // Add the response data
-        env::set_nested_value(inner_y, &["response", "body"], from_utf8(resp.get_body()).unwrap());
-        env::set_nested_value(inner_y, &["response", "status"], resp.get_code().to_string().as_str());
+        yaml_util::set_nested_value(inner_y, &["response", "body"], from_utf8(resp.get_body()).unwrap());
+        yaml_util::set_nested_value(inner_y, &["response", "status"], resp.get_code().to_string().as_str());
         for (key, value) in resp.get_headers() {
-            env::set_nested_value(inner_y, &["response", "headers", key], value[0].as_str());
+            yaml_util::set_nested_value(inner_y, &["response", "headers", key], value[0].as_str());
         }
 
         arr.insert(0, inner_y.clone());
     }
 
-    let mut out_str = String::new();
-    {
-        let mut emitter = YamlEmitter::new(&mut out_str);
-        emitter.dump(&y).unwrap();
-    }
-    file::write_file(HISTORY_FILE, out_str.as_str());
-
-    Ok(())
+    Ok(try!(yaml_util::dump_yaml_file(HISTORY_FILE, &y)))
 }
 
 pub fn list() -> Result<Vec<String>, String> {
@@ -70,13 +62,13 @@ pub fn list() -> Result<Vec<String>, String> {
 
     let mut result = Vec::new();
 
-    let mut y = &mut try!(file::load_yaml_file(&HISTORY_FILE));
+    let mut y = &mut try!(yaml_util::load_yaml_file(&HISTORY_FILE));
 
     if let Yaml::Array(ref mut arr) = *y {
         for y in arr.iter() {
-            let verb = try!(get_string_from_yaml(&y, &["request", "verb"]));
-            let endpoint = try!(get_string_from_yaml(&y, &["request", "endpoint"]));
-            let uri = try!(get_string_from_yaml(&y, &["request", "uri"]));
+            let verb = try!(yaml_util::get_value_as_string(&y, &["request", "verb"]));
+            let endpoint = try!(yaml_util::get_value_as_string(&y, &["request", "endpoint"]));
+            let uri = try!(yaml_util::get_value_as_string(&y, &["request", "uri"]));
             let s = format!("{} {}{}", verb, endpoint, uri);
             result.push(s);
         }
@@ -92,7 +84,7 @@ pub fn get(raw_index: &String) -> Result<String, String> {
 
     let index = raw_index.parse().unwrap();
 
-    let mut y = &mut try!(file::load_yaml_file(&HISTORY_FILE));
+    let mut y = &mut try!(yaml_util::load_yaml_file(&HISTORY_FILE));
 
     if let Yaml::Array(ref mut arr) = *y {
         let target = match arr.get(index) {
@@ -102,13 +94,13 @@ pub fn get(raw_index: &String) -> Result<String, String> {
 
         // Request data
         let mut output = "-------------------- Request ---------------------\n".to_string();
-        let verb = try!(get_string_from_yaml(&target, &["request", "verb"]));
-        let endpoint = try!(get_string_from_yaml(&target, &["request", "endpoint"]));
-        let uri = try!(get_string_from_yaml(&target, &["request", "uri"]));
-        let body = try!(get_string_from_yaml(&target, &["request", "body"]));
+        let verb = try!(yaml_util::get_value_as_string(&target, &["request", "verb"]));
+        let endpoint = try!(yaml_util::get_value_as_string(&target, &["request", "endpoint"]));
+        let uri = try!(yaml_util::get_value_as_string(&target, &["request", "uri"]));
+        let body = try!(yaml_util::get_value_as_string(&target, &["request", "body"]));
 
         output.push_str(format!("{} {}{}\n", verb, endpoint, uri).as_str());
-        match env::get_nested_value(&target, &["request", "headers"]) {
+        match yaml_util::get_nested_value(&target, &["request", "headers"]) {
             Some(&Yaml::Hash(ref headers)) => {
                 for (key, value) in headers.iter() {
                     output.push_str(format!("{}: {}\n", key.as_str().unwrap(),
@@ -123,11 +115,11 @@ pub fn get(raw_index: &String) -> Result<String, String> {
         // Response Data
         output.push_str("-------------------- Response ---------------------\n");
 
-        let body = try!(get_string_from_yaml(&target, &["response", "body"]));
-        let status = try!(get_string_from_yaml(&target, &["response", "status"]));
+        let body = try!(yaml_util::get_value_as_string(&target, &["response", "body"]));
+        let status = try!(yaml_util::get_value_as_string(&target, &["response", "status"]));
 
         output.push_str(format!("Status code {}\n", status).as_str());
-        match env::get_nested_value(&target, &["response", "headers"]) {
+        match yaml_util::get_nested_value(&target, &["response", "headers"]) {
             Some(&Yaml::Hash(ref headers)) => {
                 for (key, value) in headers.iter() {
                     output.push_str(format!("{}: {}\n", key.as_str().unwrap(),
@@ -142,17 +134,5 @@ pub fn get(raw_index: &String) -> Result<String, String> {
         Ok(output.to_string())
     } else {
         Err(format!("Failed to load history file {}", HISTORY_FILE))
-    }
-}
-
-fn get_string_from_yaml(y: &Yaml, keys: &[&str]) -> Result<String, String> {
-    match env::get_nested_value(y, keys) {
-        Some(&Yaml::String(ref m)) => { Ok(m.to_string()) },
-        Some(ref s) => {
-            Err(format!("Invalid value '{:?}' for key {:?} in request file", s, keys))
-        },
-        _ => {
-            Err(format!("Missing key {:?} in request file", keys))
-        },
     }
 }

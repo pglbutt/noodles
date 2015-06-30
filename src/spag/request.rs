@@ -8,6 +8,7 @@ use curl::http;
 use curl::http::handle::Method;
 use yaml_rust::Yaml;
 use super::file;
+use super::yaml_util;
 
 
 /// Split "Content-type: application/json" into vec!["Content-type", "application/json"]
@@ -39,7 +40,7 @@ pub fn get_request_filename(name: &str, dir: &str) -> Result<String, String> {
 
 pub fn load_request_file(name: &str, dir: &str) -> Result<Yaml, String> {
     let filename = try!(get_request_filename(name, dir));
-    file::load_yaml_file(&filename)
+    yaml_util::load_yaml_file(&filename)
 }
 
 pub fn method_from_str(s: &str) -> Method {
