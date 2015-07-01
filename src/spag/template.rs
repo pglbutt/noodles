@@ -15,7 +15,7 @@ pub enum Token<'a> {
     Text(&'a str),
     With(&'a str),
     Env(&'a str, Vec<&'a str>),
-    Request(&'a str, Vec<&'a str>),
+    Request(&'a str, Vec<String>),
     DefaultVal(&'a str),
 }
 
@@ -78,7 +78,8 @@ fn substitute<'a>(options: &Vec<Token<'a>>, withs: &HashMap<&str, &str>
             &Token::Request(name, ref key_path) => {
                 // return Err("substitution not implemented for requests".to_string());
                 // println!("sub Request {}.{:?}", name, key_path);
-                let poo = remember::find_remembered_key(name, key_path);
+                let key_path: Vec<&str> = key_path.iter().map(|k| k.as_str()).collect();
+                let poo = remember::find_remembered_key(name, &key_path);
                 // println!("{:?}", poo);
                 if let Ok(s) = poo {
                   //  println!("got value '{}'", s);
@@ -160,8 +161,7 @@ impl<'a> Tokenizer<'a> {
                 result.push(try!(self.read_braces()));
             } else if self.shortcuts && self.has("@") {
                 self.next();
-                let token = try!(self.read_brace_item());
-                result.push(Token::Substitute(vec![token]));
+                result.push(try!(self.read_shortcut_item()));
             } else {
                 result.push(try!(self.read_text()));
             }
@@ -242,6 +242,33 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// @body.id is euivalent to {{ last.response.body.id }}
+    /// @id is equivalent to {{ last.response.body.id }}
+    fn read_shortcut_item(&mut self) -> Result<Token<'a>, String> {
+        let token =
+            match try!(self.read_brace_item()) {
+                Token::Request(_, key_path) => {
+                    let mut keys = vec!["response".to_string()];
+                    if key_path.len() == 1 {
+                        keys.push("body".to_string());
+                        for k in key_path {
+                            keys.push(k.to_string());
+                        }
+                    } else if key_path.len() >= 2 {
+                        for k in key_path {
+                            keys.push(k.to_string());
+                        }
+                    }
+                    Token::Request("last", keys)
+                },
+                Token::With(name) => {
+                    Token::Request("last", vec!["response".to_string(), "body".to_string(), name.to_string()])
+                }
+                token => token,
+            };
+        Ok(Token::Substitute(vec![token]))
+    }
+
     /// Read something like [<name>].<key>.<key>
     fn read_env_item(&mut self) -> Result<Token<'a>, String> {
         assert!(!self.eof());
@@ -279,6 +306,7 @@ impl<'a> Tokenizer<'a> {
             if key_path.is_empty() {
                 Err(format!("Expected key after \"{}.\"", name))
             } else {
+                let key_path: Vec<String> = key_path.iter().map(|k| k.to_string()).collect();
                 Ok(Token::Request(name, key_path))
             }
         } else {
