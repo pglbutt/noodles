@@ -639,7 +639,7 @@ class TestSpagTemplate(BaseTest):
         _, err, ret = run_spag('get', '/things')
 
         out, err, ret = run_spag('get', '/things/@body.things.1.id')
-        self.assertIn('Index 1 out of bounds while looking up response.body.things.1.id', err)
+        self.assertEqual(err.strip(), 'Failed to substitute for {{ last.response.body.things.1.id }}')
         self.assertEqual(ret, 1)
 
     def test_spag_template_list_w_invalid_index(self):
@@ -648,7 +648,7 @@ class TestSpagTemplate(BaseTest):
         _, err, ret = run_spag('get', '/things')
 
         out, err, ret = run_spag('get', '/things/@body.things.poo.id')
-        self.assertIn('Invalid list index poo while fetching response.body.things.poo.id', err)
+        self.assertIn(err.strip(), 'Failed to substitute for {{ last.response.body.things.poo.id }}')
         self.assertEqual(ret, 1)
 
     def test_spag_templated_env_set(self):

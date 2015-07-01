@@ -246,24 +246,21 @@ impl<'a> Tokenizer<'a> {
     /// @id is equivalent to {{ last.response.body.id }}
     fn read_shortcut_item(&mut self) -> Result<Token<'a>, String> {
         let token =
+            // If we have just one key, like @id, we'll get back a Token::With
+            // If we have many keys, we'll get back a Token::Request with the first key in the
+            // name and the remaining keys in the key_path
             match try!(self.read_brace_item()) {
-                Token::Request(_, key_path) => {
-                    let mut keys = vec!["response".to_string()];
-                    if key_path.len() == 1 {
-                        keys.push("body".to_string());
-                        for k in key_path {
-                            keys.push(k.to_string());
-                        }
-                    } else if key_path.len() >= 2 {
-                        for k in key_path {
-                            keys.push(k.to_string());
-                        }
+                Token::Request(name, key_path) => {
+                    let mut keys = vec!["response".to_string(), name.to_string()];
+                    for k in key_path {
+                        keys.push(k.to_string())
                     }
                     Token::Request("last", keys)
                 },
                 Token::With(name) => {
-                    Token::Request("last", vec!["response".to_string(), "body".to_string(), name.to_string()])
-                }
+                    let keys = vec!["response".to_string(), "body".to_string(), name.to_string()];
+                    Token::Request("last", keys)
+                },
                 token => token,
             };
         Ok(Token::Substitute(vec![token]))

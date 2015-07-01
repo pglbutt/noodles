@@ -53,6 +53,7 @@ pub fn load_remembered_request(name: &str) -> Result<Yaml, String> {
     }
 }
 
+/// Load the remembered request and grab a value from it
 pub fn find_remembered_key(remembered_name: &str, key_path: &[&str]) -> Result<String, String> {
     let y = try!(load_remembered_request(remembered_name));
     // println!("{:?}", y);
@@ -66,17 +67,16 @@ pub fn find_remembered_key(remembered_name: &str, key_path: &[&str]) -> Result<S
         if let Ok(body) = Json::from_str(&body_string) {
             // println!("body: {:?}", body);
             // TODO: find_path only works on Json::Objects. we need to handle indexing into Json::Arrays.
-            match body.find_path(json_key_path) {
-                Some(&Json::String(ref s))  => Ok(s.to_string()),
-                Some(&Json::I64(val))       => Ok(format!("{}", val)),
-                Some(&Json::U64(val))       => Ok(format!("{}", val)),
-                Some(&Json::F64(val))       => Ok(format!("{}", val)),
-                Some(&Json::Boolean(val))   => Ok(format!("{}", val)),
-                Some(&Json::Null)           => Ok("null".to_string()),
-                Some(&Json::Array(_)) | Some(&Json::Object(_)) => {
+            match *try!(json_find_path(&body, json_key_path)) {
+                Json::String(ref s)  => Ok(s.to_string()),
+                Json::I64(val)       => Ok(format!("{}", val)),
+                Json::U64(val)       => Ok(format!("{}", val)),
+                Json::F64(val)       => Ok(format!("{}", val)),
+                Json::Boolean(val)   => Ok(format!("{}", val)),
+                Json::Null           => Ok("null".to_string()),
+                Json::Array(_) | Json::Object(_) => {
                     Err(format!("Refusing to interpolate json array or object in template"))
                 },
-                None => Err(format!("Failed to find path {:?} in json request/response body", json_key_path)),
             }
         } else {
             Err(format!("Failed to load body as json for {:?} in remembered request {}", key_path, remembered_name))
@@ -84,4 +84,33 @@ pub fn find_remembered_key(remembered_name: &str, key_path: &[&str]) -> Result<S
     } else {
         yaml_util::get_value_as_string(&y, key_path)
     }
+}
+
+/// Grab a value out of some json. This handles array indexing properly.
+pub fn json_find_path<'a>(data: &'a Json, key_path: &[&str]) -> Result<&'a Json, String> {
+    if key_path.is_empty() {
+       return Err("Empty json key".to_string());
+    }
+
+    let mut target = data;
+    for key in key_path.iter() {
+        if target.is_array() {
+            match key.parse::<usize>() {
+                Ok(x) => {
+                    if x < target.as_array().unwrap().len() {
+                        target = &target[x];
+                    } else {
+                        return Err(format!("Index {} out of bounds for key path {:?}", key, key_path));
+                    }
+                },
+                Err(_) => { return Err(format!("Invalid array index '{}' for key path {:?}", key, key_path)); },
+            };
+        } else {
+            match target.find(*key) {
+                Some(t) => { target = t; },
+                None => { return Err(format!("Invalid key '{}'", key)); },
+            }
+        }
+    }
+    Ok(target)
 }
