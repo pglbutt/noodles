@@ -20,21 +20,20 @@ spag is a __command line REST client__. It aims to make developing, testing, and
 * Use previous request data in template `--with` clauses. `spag request get_thing --with id=@id`
 * More things
 
-## Install
+## Building/running/testing
 
-#### Recommended
+The project is built as a lib by default, which lets us import the crate whenever
+we need to test something:
 
-```bash
-pip install spag
-```
+    cargo test
 
-#### From source
+To build and run `spag`, just do:
 
-```bash
-git clone https://github.com/pglbutt/noodles.git
-cd noodles
-pip install .
-```
+    cargo run
+
+Or also:
+
+    cargo run --bin spag
 
 ## Basics
 

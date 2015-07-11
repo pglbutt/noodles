@@ -1,0 +1,15 @@
+[package]
+name = "noodles"
+version = "0.1.0"
+authors = ["Paul Glass <pnglass@gmail.com>", "Tim Simmons <tim.r.simmons@gmail.com>"]
+
+[lib]
+name = "noodles"
+doctest = false
+
+[dependencies]
+docopt = "0.6.66"
+docopt_macros = "0.6.66"
+rustc-serialize = "0.3.15"
+curl = "0.2.10"
+yaml-rust = "0.2.0"
