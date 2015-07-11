@@ -141,6 +141,11 @@ class TestGet(BaseTest):
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"things": []})
 
+    def test_with_non_responsive_endpoint(self):
+        out, err, ret = run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)
+        out, err, ret = run_spag('get', '/things', '-e', 'http://localhost:poo')
+        self.assertEqual(ret, 1)
+        self.assertEqual(err, 'Couldn\'t connect to server\n')
 
 class TestPost(BaseTest):
 
