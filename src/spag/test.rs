@@ -1,9 +1,13 @@
-use super::yaml_util;
+use std::collections::hash_map::HashMap;
+
+use yaml_rust::YamlLoader;
+use rustc_serialize::json::Json;
+
 use super::file;
 use super::template;
 use super::template::Token;
-use yaml_rust::YamlLoader;
-use std::collections::hash_map::HashMap;
+use super::remember;
+use super::yaml_util;
 
 #[test] fn test_set_nested_value_in_yaml() {
     let mut doc = &mut YamlLoader::load_from_str("{}").unwrap()[0];
@@ -45,6 +49,22 @@ use std::collections::hash_map::HashMap;
     assert!(doc["headers"]["content-type"].as_str().unwrap() == "application/json");
 }
 
+#[test] fn test_json_find_path() {
+    let data = Json::from_str(r#"
+        {"a":
+            [{"b":
+                {"c": "hello"}
+            }]
+        }
+    "#).unwrap();
+    assert!(remember::json_find_path(&data, &["a"]).unwrap().is_array());
+    assert_eq!(Ok(&Json::String("hello".to_string())),
+               remember::json_find_path(&data, &["a", "0", "b", "c"]));
+
+
+    assert!(remember::json_find_path(&data, &["a", "1"]).is_err());
+}
+
 #[test] fn test_ensure_extension() {
     assert!(&file::ensure_extension("aaa", "yml") == "aaa.yml");
     assert!(&file::ensure_extension("aaa.", "yml") == "aaa.yml");
@@ -65,30 +85,40 @@ use std::collections::hash_map::HashMap;
     assert_eq!(tokens, vec![
         Token::Substitute(vec![
             Token::With("wumbo"),
-            Token::Request("aaa", vec!["bbb"]),
+            Token::Request("aaa", vec!["bbb".to_string()]),
             Token::DefaultVal("ccc"),
         ])]);
 }
 
 #[test] fn test_tokenize_shortcut() {
+    let key_path = vec!["response".to_string(), "body".to_string(), "wumbo".to_string()];
+
     let tokens = template::Tokenizer::new("@wumbo", true).tokenize().unwrap();
-    assert_eq!(tokens, vec![ Token::Substitute(vec![ Token::With("wumbo") ])]);
+    assert_eq!(tokens, vec![ Token::Substitute(vec![ Token::Request("last", key_path.clone()) ])]);
+
+    let tokens = template::Tokenizer::new("@body.wumbo", true).tokenize().unwrap();
+    assert_eq!(tokens, vec![ Token::Substitute(vec![ Token::Request("last", key_path.clone()) ])]);
+
+    let key_path = vec!["response".to_string(), "body".to_string(), "things".to_string(), "0".to_string(), "id".to_string()];
+    let tokens = template::Tokenizer::new("@body.things.0.id", true).tokenize().unwrap();
+    assert_eq!(tokens, vec![ Token::Substitute(vec![ Token::Request("last", key_path) ])]);
 }
 
 #[test] fn test_tokenize_text_list_shortcut_together() {
     let text =
         "  pglbutt   @[ yaml_util ].wumbo.thing_1234567890/poo{{last.response.body.id}}\t\nhello \t";
     let tokens = template::Tokenizer::new(text, true).tokenize().unwrap();
+    let key_path = vec!["response".to_string(), "body".to_string(), "id".to_string()];
     assert_eq!(tokens, vec![
         Token::Text("  pglbutt   "),
         Token::Substitute(vec![ Token::Env("yaml_util", vec!["wumbo", "thing_1234567890"]) ]),
         Token::Text("/poo"),
-        Token::Substitute(vec![ Token::Request("last", vec!["response", "body", "id"]) ]),
+        Token::Substitute(vec![ Token::Request("last", key_path) ]),
         Token::Text("\t\nhello \t"),
     ]);
 }
 
-#[test] fn test_token_text_shortcuts_disabled() {
+#[test] fn test_tokenize_text_shortcuts_disabled() {
     let tokens = template::Tokenizer::new("@a{{b}}", false).tokenize().unwrap();
     assert_eq!(tokens, vec![
         Token::Text("@a"),
@@ -100,16 +130,10 @@ use std::collections::hash_map::HashMap;
     let mut withs: HashMap<&str, &str> = HashMap::new();
     withs.insert("a", "A");
     withs.insert("b", "B");
-    let text = template::untemplate("@a{{b}}", &withs, true).unwrap();
-    assert_eq!(&text, "AB");
     let text = template::untemplate("{{a}}{{b}}", &withs, true).unwrap();
     assert_eq!(&text, "AB");
-    let text = template::untemplate("{{a}}@b", &withs, true).unwrap();
-    assert_eq!(&text, "AB");
-    let text = template::untemplate("@a@b", &withs, true).unwrap();
-    assert_eq!(&text, "AB");
-    let text = template::untemplate("  mini  {{a}}  @b  wumbo  ", &withs, true).unwrap();
-    assert_eq!(&text, "  mini  A  B  wumbo  ");
+    let text = template::untemplate("  mini  {{ a }}  wumbo  ", &withs, true).unwrap();
+    assert_eq!(&text, "  mini  A  wumbo  ");
 }
 
 #[test] fn test_untemplate_withs_w_many_items() {

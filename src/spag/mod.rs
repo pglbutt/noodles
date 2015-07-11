@@ -29,13 +29,14 @@ macro_rules! try_error {
     })
 }
 
-pub mod main;
-pub mod request;
-pub mod file;
-pub mod env;
-pub mod template;
-pub mod history;
 pub mod args;
+pub mod env;
+pub mod file;
+pub mod history;
+pub mod main;
+pub mod remember;
+pub mod request;
+pub mod template;
 pub mod yaml_util;
 
 #[cfg(test)]

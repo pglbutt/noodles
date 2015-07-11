@@ -4,6 +4,7 @@ use yaml_rust::Yaml;
 
 use super::env;
 use super::yaml_util;
+use super::remember;
 
 const VALID_ITEM_NAME_CHARS: &'static str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_";
@@ -14,7 +15,7 @@ pub enum Token<'a> {
     Text(&'a str),
     With(&'a str),
     Env(&'a str, Vec<&'a str>),
-    Request(&'a str, Vec<&'a str>),
+    Request(&'a str, Vec<String>),
     DefaultVal(&'a str),
 }
 
@@ -69,13 +70,26 @@ fn substitute<'a>(options: &Vec<Token<'a>>, withs: &HashMap<&str, &str>
             },
             &Token::Env(name, ref key_path) => {
                 if let Ok(y) = env::load_environment(name) {
-                    if let Some(&Yaml::String(ref val)) = yaml_util::get_nested_value(&y, &key_path) {
+                    if let Some(&Yaml::String(ref val)) = yaml_util::get_nested_value(&y, key_path) {
                         return Ok(val.to_string());
                     }
                 }
             },
             &Token::Request(name, ref key_path) => {
-                return Err("substitution not implemented for requests".to_string());
+                // return Err("substitution not implemented for requests".to_string());
+                // println!("sub Request {}.{:?}", name, key_path);
+                let key_path: Vec<&str> = key_path.iter().map(|k| k.as_str()).collect();
+                let poo = remember::find_remembered_key(name, &key_path);
+                // println!("{:?}", poo);
+                if let Ok(s) = poo {
+                  //  println!("got value '{}'", s);
+                    return Ok(s.to_string());
+                }
+                //if let Ok(y) = remember::load_remembered_request(name) {
+                //    if let Some(&Yaml::String(ref val)) = yaml_util::get_nested_value(&y, key_path) {
+                //        return Ok(val.to_string());
+                //    }
+                //}
             },
             &Token::DefaultVal(val) => {
                 return Ok(val.to_string());
@@ -147,8 +161,7 @@ impl<'a> Tokenizer<'a> {
                 result.push(try!(self.read_braces()));
             } else if self.shortcuts && self.has("@") {
                 self.next();
-                let token = try!(self.read_brace_item());
-                result.push(Token::Substitute(vec![token]));
+                result.push(try!(self.read_shortcut_item()));
             } else {
                 result.push(try!(self.read_text()));
             }
@@ -229,6 +242,30 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// @body.id is euivalent to {{ last.response.body.id }}
+    /// @id is equivalent to {{ last.response.body.id }}
+    fn read_shortcut_item(&mut self) -> Result<Token<'a>, String> {
+        let token =
+            // If we have just one key, like @id, we'll get back a Token::With
+            // If we have many keys, we'll get back a Token::Request with the first key in the
+            // name and the remaining keys in the key_path
+            match try!(self.read_brace_item()) {
+                Token::Request(name, key_path) => {
+                    let mut keys = vec!["response".to_string(), name.to_string()];
+                    for k in key_path {
+                        keys.push(k.to_string())
+                    }
+                    Token::Request("last", keys)
+                },
+                Token::With(name) => {
+                    let keys = vec!["response".to_string(), "body".to_string(), name.to_string()];
+                    Token::Request("last", keys)
+                },
+                token => token,
+            };
+        Ok(Token::Substitute(vec![token]))
+    }
+
     /// Read something like [<name>].<key>.<key>
     fn read_env_item(&mut self) -> Result<Token<'a>, String> {
         assert!(!self.eof());
@@ -266,6 +303,7 @@ impl<'a> Tokenizer<'a> {
             if key_path.is_empty() {
                 Err(format!("Expected key after \"{}.\"", name))
             } else {
+                let key_path: Vec<String> = key_path.iter().map(|k| k.to_string()).collect();
                 Ok(Token::Request(name, key_path))
             }
         } else {
