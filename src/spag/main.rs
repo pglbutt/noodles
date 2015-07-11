@@ -209,7 +209,7 @@ fn spag_method(args: &Args) {
 
 fn do_request(req: &SpagRequest) {
     let mut handle = http::handle();
-    let resp = req.prepare(&mut handle).exec().unwrap();
+    let resp = try_error!(req.prepare(&mut handle).exec());
     println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
     try_error!(history::append(req, &resp));
     try_error!(remember::remember(req, &resp));
