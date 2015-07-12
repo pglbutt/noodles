@@ -2,8 +2,8 @@ language: rust
 rust: nightly
 script:
     - "sudo apt-get update && sudo apt-get install python-virtualenv"
-    - "cargo build --verbose"
-    - "cargo test --verbose"
+    - "cargo build --release --verbose"
+    - "cargo test --release --verbose"
     - "virtualenv .venv"
     - ". .venv/bin/activate"
     - "pip install -r tests/test-requirements.txt"
