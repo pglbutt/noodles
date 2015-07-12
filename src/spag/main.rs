@@ -88,7 +88,7 @@ fn spag_env_activate(args: &Args) {
 }
 
 fn spag_env_deactivate() {
-    env::deactivate_environment();
+    try_error!(env::deactivate_environment());
 }
 
 fn spag_history(args: &Args) {

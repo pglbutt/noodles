@@ -17,9 +17,9 @@ const DEFAULT_ENV_NAME: &'static str = "default";
 pub fn get_active_environment_name() -> String {
     // create file specifiying the active env if it doesn't exist
     if !Path::new(ACTIVE_ENV_FILE).exists() {
+        file::ensure_dir_exists(ENV_DIR);
         file::write_file(ACTIVE_ENV_FILE, DEFAULT_ENV_NAME);
     }
-
     // create the default environment if it doesn't exist
     let default_file = &format!("{}/{}", ENV_DIR, file::ensure_extension(DEFAULT_ENV_NAME, "yml"));
     if !Path::new(default_file).exists() {
@@ -29,7 +29,7 @@ pub fn get_active_environment_name() -> String {
 }
 
 /// Writes to the active environment file the name of the supplied environment, if it exists.
-pub fn set_active_environment(name: &str) -> Result<(), String>{
+pub fn set_active_environment(name: &str) -> Result<(), String> {
     let env_filename = &format!("{}/{}", ENV_DIR, file::ensure_extension(name, "yml"));
     if !Path::new(env_filename).exists() {
         return Err(format!("Tried to activate non-existent environment {:?}", name))
@@ -40,12 +40,13 @@ pub fn set_active_environment(name: &str) -> Result<(), String>{
 }
 
 /// Sets the active environment to the 'default' environment.
-pub fn deactivate_environment() {
+pub fn deactivate_environment() -> Result<(), String> {
     let activename = get_active_environment_name();
 
     if activename != DEFAULT_ENV_NAME {
-        set_active_environment(DEFAULT_ENV_NAME);
+        try!(set_active_environment(DEFAULT_ENV_NAME));
     }
+    Ok(())
 }
 
 /// Returns a YAML object of the environment file requested.
