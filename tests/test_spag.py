@@ -382,6 +382,11 @@ class TestSpagEnvironments(BaseTest):
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
 
+    def test_spag_environment_activate_bad_env(self):
+        out, err, ret = run_spag('env', 'activate', 'ninnymuggins')
+        self.assertEqual(err, 'Tried to activate non-existent environment "ninnymuggins"\n')
+        self.assertEqual(ret, 1)
+
 
 class TestSpagRemembers(BaseTest):
 

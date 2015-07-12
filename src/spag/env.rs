@@ -29,13 +29,14 @@ pub fn get_active_environment_name() -> String {
 }
 
 /// Writes to the active environment file the name of the supplied environment, if it exists.
-pub fn set_active_environment(name: &str) {
+pub fn set_active_environment(name: &str) -> Result<(), String>{
     let env_filename = &format!("{}/{}", ENV_DIR, file::ensure_extension(name, "yml"));
     if !Path::new(env_filename).exists() {
-        panic!("Tried to activate non-existent environment {:?}", name);
+        return Err(format!("Tried to activate non-existent environment {:?}", name))
     }
     // write out new name to the active file
     file::write_file(ACTIVE_ENV_FILE, name);
+    Ok(())
 }
 
 /// Sets the active environment to the 'default' environment.
