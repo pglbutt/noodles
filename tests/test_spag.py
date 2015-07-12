@@ -440,7 +440,46 @@ class TestSpagRemembers(BaseTest):
         resp = last_data['response']
         self.assertEqual(set(resp.keys()), set(['body', 'headers', 'status']))
         self.assertEqual(resp['headers']['content-type'], 'application/json')
-        # status code is stored as a string?
+        self.assertEqual(resp['status'], '201')
+        self.assertEqual(json.loads(resp['body']), {"id": "c"})
+
+    def test_spag_remembers_request_w_remember_as_flag(self):
+        # Test that a request is remembered as last.yml and other.yml if we use
+        # the flag `--remember-as other`
+        last_file = os.path.join(SPAG_REMEMBERS_DIR, 'last.yml')
+        other_file = os.path.join(SPAG_REMEMBERS_DIR, 'other.yml')
+
+        self.assertFalse(os.path.exists(SPAG_REMEMBERS_DIR))
+        self.assertFalse(os.path.exists(other_file))
+        self.assertFalse(os.path.exists(last_file))
+
+        _, err, ret = run_spag('request', 'v2/post_thing.yml',
+                               '--dir', RESOURCES_DIR,
+                               '--remember-as', 'other')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        self.assertTrue(os.path.exists(SPAG_REMEMBERS_DIR))
+        self.assertTrue(os.path.exists(other_file))
+
+        other_data = yaml.load(open(other_file, 'r').read())
+        last_data = yaml.load(open(last_file, 'r').read())
+        self.assertEqual(other_data, last_data)
+
+        # check the saved request data
+        req = other_data['request']
+        self.assertEqual(set(req.keys()),
+            set(['body', 'endpoint', 'uri', 'headers', 'method']))
+        self.assertEqual(req['method'], 'POST')
+        self.assertEqual(req['endpoint'], ENDPOINT)
+        self.assertEqual(req['uri'], '/things')
+        self.assertEqual(req['headers']['Accept'], 'application/json')
+        self.assertEqual(json.loads(req['body']), {"id": "c"})
+
+        # check the saved response data
+        resp = other_data['response']
+        self.assertEqual(set(resp.keys()), set(['body', 'headers', 'status']))
+        self.assertEqual(resp['headers']['content-type'], 'application/json')
         self.assertEqual(resp['status'], '201')
         self.assertEqual(json.loads(resp['body']), {"id": "c"})
 
@@ -712,6 +751,17 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(out.strip()[:len(prefix)], prefix)
         self.assertEqual(out.strip()[-len(suffix):], suffix)
 
+    def test_spag_template_w_remember_as_flag(self):
+        out, err, ret = run_spag('request', 'post_thing', '-v',
+                                 '--with', 'thing_id', 'wumbo',
+                                 '--remember-as', 'wumbo')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        out, err, ret = run_spag('get', '/things/{{wumbo.response.body.id}}')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEquals(json.loads(out), {"id": "wumbo"})
 
 class TestSpagHistory(BaseTest):
 

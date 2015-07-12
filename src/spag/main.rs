@@ -211,7 +211,10 @@ fn do_request(args: &Args, req: &SpagRequest) {
     let mut handle = http::handle();
     let resp = try_error!(req.prepare(&mut handle).exec());
     try_error!(history::append(req, &resp));
-    try_error!(remember::remember(req, &resp));
+    try_error!(remember::remember(req, &resp, "last.yml"));
+    if !args.flag_remember_as.is_empty() {
+        try_error!(remember::remember(req, &resp, &args.flag_remember_as));
+    }
 
     if args.flag_verbose {
         let out = try_error!(history::get(&"0".to_string()));
