@@ -8,7 +8,8 @@ import textwrap
 import yaml
 
 # TODO: read this from a config?
-SPAG_PROG = './target/debug/spag'
+SPAG_PROG = os.environ.get('SPAG_TEST_EXE', './target/debug/spag')
+print "Using spag at %s" % SPAG_PROG
 ENDPOINT = 'http://localhost:5000'
 RESOURCES_DIR = os.path.join(os.path.dirname(__file__), 'resources')
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')

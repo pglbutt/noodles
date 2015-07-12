@@ -8,6 +8,6 @@ script:
     - ". .venv/bin/activate"
     - "pip install -r tests/test-requirements.txt"
     - "python tests/testapp.py &"
-    - "nosetests -sv tests/"
+    - "export SPAG_TEST_EXE='./target/release/spag' && nosetests -sv tests/"
 notifications:
   email: false
