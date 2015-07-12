@@ -7,9 +7,6 @@ import textwrap
 
 import yaml
 
-# from spag import remembers
-# from spag import files
-
 # TODO: read this from a config?
 SPAG_PROG = './target/debug/spag'
 ENDPOINT = 'http://localhost:5000'
@@ -100,13 +97,6 @@ class TestHeaders(BaseTest):
         self.assertNotEqual(ret, 0)
         self.assertEqual(err, 'Invalid header "poo"\n')
 
-    @unittest.skip('Not Implemented')
-    def test_show_headers(self):
-        out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT, '-h')
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-        self.assertIn('content-type: application/json', out)
-
     def test_passed_headers_override_environment(self):
         out, err, ret = run_spag('env', 'set', 'headers.a', 'b')
         self.assertEqual(err, '')
@@ -131,7 +121,7 @@ class TestGet(BaseTest):
         self.assertEqual(json.loads(out), {"token": "abcde"})
 
     def test_get_presupply_endpoint(self):
-        out, err, ret = run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)
+        out, err, ret = run_spag('env', 'set', 'endpoint', ENDPOINT)
         self.assertEqual(out, '---\n"endpoint": "{0}"\n'.format(ENDPOINT))
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
@@ -140,10 +130,38 @@ class TestGet(BaseTest):
         self.assertEqual(json.loads(out), {"things": []})
 
     def test_with_non_responsive_endpoint(self):
-        out, err, ret = run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)
+        out, err, ret = run_spag('env', 'set', 'endpoint', ENDPOINT)
         out, err, ret = run_spag('get', '/things', '-e', 'http://localhost:poo')
         self.assertEqual(ret, 1)
         self.assertEqual(err, 'Couldn\'t connect to server\n')
+
+    def test_verbose_flag(self):
+        out, err, ret = run_spag('get', '/auth', '-v', '-e', ENDPOINT,
+                                 '-H', 'Content-type: application/json',
+                                 '-H', 'Accept: application/json',
+                                 '-H', 'mini: wumbo')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        prefix = textwrap.dedent("""
+            -------------------- Request ---------------------
+            GET http://localhost:5000/auth
+            Accept: application/json
+            Content-Type: application/json
+            mini: wumbo
+            Body:
+
+            -------------------- Response ---------------------
+            Status code 200
+            content-length: 22
+            """).strip()
+        suffix = textwrap.dedent("""
+            Body:
+            {
+              "token": "abcde"
+            }
+            """).strip()
+        self.assertEqual(out.strip()[:len(prefix)], prefix)
+        self.assertEqual(out.strip()[-len(suffix):], suffix)
 
 class TestPost(BaseTest):
 
@@ -393,11 +411,9 @@ class TestSpagRemembers(BaseTest):
         run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)
 
     def test_spag_remembers_request(self):
-        # auth_file = os.path.join(SPAG_REMEMBERS_DIR, 'v2/post_thing.yml')
         last_file = os.path.join(SPAG_REMEMBERS_DIR, 'last.yml')
 
         self.assertFalse(os.path.exists(SPAG_REMEMBERS_DIR))
-        # self.assertFalse(os.path.exists(auth_file))
         self.assertFalse(os.path.exists(last_file))
 
         _, err, ret = run_spag('request', 'v2/post_thing.yml',
@@ -406,10 +422,8 @@ class TestSpagRemembers(BaseTest):
         self.assertEqual(ret, 0)
 
         self.assertTrue(os.path.exists(SPAG_REMEMBERS_DIR))
-        # self.assertTrue(os.path.exists(auth_file))
         self.assertTrue(os.path.exists(last_file))
 
-        # auth_data = files.load_file(auth_file)
         last_data = yaml.load(open(last_file, 'r').read())
 
         # check the saved request data
@@ -426,7 +440,7 @@ class TestSpagRemembers(BaseTest):
         resp = last_data['response']
         self.assertEqual(set(resp.keys()), set(['body', 'headers', 'status']))
         self.assertEqual(resp['headers']['content-type'], 'application/json')
-        # status code is stored as strings?
+        # status code is stored as a string?
         self.assertEqual(resp['status'], '201')
         self.assertEqual(json.loads(resp['body']), {"id": "c"})
 
@@ -463,7 +477,7 @@ class TestSpagTemplate(BaseTest):
     def setUp(self):
         super(TestSpagTemplate, self).setUp()
         assert run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)[2] == 0
-        assert run_spag('env', 'set', 'dir', '%s' % TEMPLATES_DIR)
+        assert run_spag('env', 'set', 'dir', '%s' % TEMPLATES_DIR)[2] == 0
 
     def _post_thing(self, thing_id):
         """post a thing to set last.response.body.id"""
@@ -513,7 +527,7 @@ class TestSpagTemplate(BaseTest):
         self._post_thing('abcde')
 
         # the body-id in headers.yml is filled in using last.response.body.id
-        # thingy is filled in using 'thingy2' insteada of 'thingy'
+        # thingy is filled in using 'thingy2' instead of 'thingy'
         out, err, ret = run_spag('request', 'templates/headers',
                                  '--with', 'hello', 'hello world',
                                  '--with', 'thingy2', 'scooby doo')
@@ -671,6 +685,32 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertEqual(yaml.load(out)['headers'].get('sandy'), 'tentacle')
+
+    def test_verbose_flag(self):
+        out, err, ret = run_spag('request', 'post_thing', '-v',
+                                 '--with', 'thing_id', 'wumbo')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        prefix = textwrap.dedent("""
+            -------------------- Request ---------------------
+            POST http://localhost:5000/things
+            Accept: application/json
+            Content-Type: application/json
+            Body:
+            {    "id": "wumbo"}
+            -------------------- Response ---------------------
+            Status code 201
+            content-length: 19
+            content-type: application/json
+            """).strip()
+        suffix = textwrap.dedent("""
+            Body:
+            {
+              "id": "wumbo"
+            }
+            """).strip()
+        self.assertEqual(out.strip()[:len(prefix)], prefix)
+        self.assertEqual(out.strip()[-len(suffix):], suffix)
 
 
 class TestSpagHistory(BaseTest):
