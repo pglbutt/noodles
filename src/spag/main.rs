@@ -159,7 +159,7 @@ fn spag_request_a_file(args: &Args) {
             let mut req = SpagRequest::new(request::method_from_str(&method), endpoint, uri);
             try_error!(req.add_headers(headers.iter()));
             req.set_body(body);
-            do_request(&req);
+            do_request(args, &req);
         },
         Err(msg) => { error!("{}", msg); }
     }
@@ -204,14 +204,21 @@ fn spag_method(args: &Args) {
 
     let body = try_error!(args::get_data(args));
     req.set_body(body);
-    do_request(&req);
+    do_request(args, &req);
 }
 
-fn do_request(req: &SpagRequest) {
+fn do_request(args: &Args, req: &SpagRequest) {
     let mut handle = http::handle();
     let resp = try_error!(req.prepare(&mut handle).exec());
-    println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
     try_error!(history::append(req, &resp));
     try_error!(remember::remember(req, &resp));
+
+    if args.flag_verbose {
+        let out = try_error!(history::get(&"0".to_string()));
+        println!("{}", out);
+    } else {
+        println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
+    }
+
 }
 
