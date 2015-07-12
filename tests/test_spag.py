@@ -228,34 +228,6 @@ class TestSpagFiles(BaseTest):
         super(TestSpagFiles, self).setUp()
         run_spag('env', 'set', 'endpoint', ENDPOINT)
         run_spag('env', 'set', 'dir', RESOURCES_DIR)
-        # self.table = files.SpagFilesLookup(RESOURCES_DIR)
-
-    @unittest.skip('Should be a unit test')
-    def test_spag_lookup(self):
-        expected = {
-            'auth.yml': set([
-                os.path.join(RESOURCES_DIR, 'auth.yml')]),
-            'delete_thing.yml': set([
-                os.path.join(RESOURCES_DIR, 'delete_thing.yml')]),
-            'patch_thing.yml': set([
-                os.path.join(V2_RESOURCES_DIR, 'patch_thing.yml')]),
-            'post_thing.yml': set([
-                os.path.join(V1_RESOURCES_DIR, 'post_thing.yml'),
-                os.path.join(V2_RESOURCES_DIR, 'post_thing.yml')]),
-            'get_thing.yml': set([
-                os.path.join(V1_RESOURCES_DIR, 'get_thing.yml'),
-                os.path.join(V2_RESOURCES_DIR, 'get_thing.yml')]),
-            'headers.yml': set([
-                os.path.join(RESOURCES_DIR, 'headers.yml')]),
-        }
-        self.assertEqual(self.table, expected)
-
-    @unittest.skip('Should be a unit test')
-    def test_spag_load_file(self):
-        content = files.load_file(os.path.join(RESOURCES_DIR, 'auth.yml'))
-        self.assertEqual(content['method'], 'GET')
-        self.assertEqual(content['uri'], '/auth')
-        self.assertEqual(content['headers'], {'Accept': 'application/json'})
 
     def test_spag_request_get(self):
         for name in ('auth.yml', 'auth'):
@@ -306,8 +278,24 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(json.loads(out), {"Hello": "abcde"})
         self.assertEqual(ret, 0)
 
-    def test_spag_list_requests(self):
+    def test_spag_request_list_w_absolute_dir(self):
+        abspath = os.path.abspath(RESOURCES_DIR)
+        _, err, ret = run_spag('env', 'set', 'dir', abspath)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
         out, err, ret = run_spag('request', 'list')
+        self._check_spag_request_list(*run_spag('request', 'list'))
+
+    def test_spag_request_list_w_relative_dir(self):
+        relpath = os.path.relpath(RESOURCES_DIR)
+        _, err, ret = run_spag('env', 'set', 'dir', relpath)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        self._check_spag_request_list(*run_spag('request', 'list'))
+
+    def _check_spag_request_list(self, out, err, ret):
         def parse(text):
             return text.split()
         expected = """

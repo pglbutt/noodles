@@ -182,8 +182,12 @@ fn spag_request_list(args: &Args) {
 
     let current_dir = try_error!(std::env::current_dir());
     for file in yaml_files.iter() {
-        // relative_from() is unstable
-        println!("{}", file.relative_from(&current_dir).unwrap().to_str().unwrap());
+        if file.starts_with(&current_dir) {
+            // relative_from() is unstable
+            println!("{}", file.relative_from(&current_dir).unwrap().to_str().unwrap());
+        } else {
+            println!("{}", file.to_str().unwrap());
+        }
     }
 }
 
