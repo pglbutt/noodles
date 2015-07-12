@@ -173,7 +173,7 @@ impl<'a> Tokenizer<'a> {
     fn read_text(&mut self) -> Result<Token<'a>, String> {
         if self.eof() { return Err("Expected text?".to_string()); }
         let &(start, _) = self.peek().unwrap();
-        let mut end;
+        let end;
         loop {
             if self.eof() {
                 end = self.text.len();
@@ -335,7 +335,7 @@ impl<'a> Tokenizer<'a> {
             return Err("Found eof while reading default value. Unclosed braces".to_string());
         }
         let &(start, _) = self.peek().unwrap();
-        let mut end;
+        let end;
         loop {
             if self.eof() {
                 return Err("Found eof while reading default value. Unclosed braces".to_string());
@@ -360,7 +360,7 @@ impl<'a> Tokenizer<'a> {
             return Err("Expected a name but found eof".to_string());
         }
         let &(start, _) = self.peek().unwrap();
-        let mut end;
+        let end;
         loop {
             if self.eof() {
                 end = self.text.len();
