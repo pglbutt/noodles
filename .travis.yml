@@ -2,12 +2,12 @@ language: rust
 rust: nightly
 script:
     - "sudo apt-get update && sudo apt-get install python-virtualenv"
-    - "cargo build --verbose"
-    - "cargo test --verbose"
+    - "cargo build --release --verbose"
+    - "cargo test --release --verbose"
     - "virtualenv .venv"
     - ". .venv/bin/activate"
     - "pip install -r tests/test-requirements.txt"
     - "python tests/testapp.py &"
-    - "nosetests -sv tests/"
+    - "export SPAG_TEST_EXE='./target/release/spag' && nosetests -sv tests/"
 notifications:
   email: false

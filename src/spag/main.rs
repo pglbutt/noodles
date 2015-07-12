@@ -159,7 +159,7 @@ fn spag_request_a_file(args: &Args) {
             let mut req = SpagRequest::new(request::method_from_str(&method), endpoint, uri);
             try_error!(req.add_headers(headers.iter()));
             req.set_body(body);
-            do_request(&req);
+            do_request(args, &req);
         },
         Err(msg) => { error!("{}", msg); }
     }
@@ -182,8 +182,12 @@ fn spag_request_list(args: &Args) {
 
     let current_dir = try_error!(std::env::current_dir());
     for file in yaml_files.iter() {
-        // relative_from() is unstable
-        println!("{}", file.relative_from(&current_dir).unwrap().to_str().unwrap());
+        if file.starts_with(&current_dir) {
+            // relative_from() is unstable
+            println!("{}", file.relative_from(&current_dir).unwrap().to_str().unwrap());
+        } else {
+            println!("{}", file.to_str().unwrap());
+        }
     }
 }
 
@@ -204,14 +208,24 @@ fn spag_method(args: &Args) {
 
     let body = try_error!(args::get_data(args));
     req.set_body(body);
-    do_request(&req);
+    do_request(args, &req);
 }
 
-fn do_request(req: &SpagRequest) {
+fn do_request(args: &Args, req: &SpagRequest) {
     let mut handle = http::handle();
     let resp = try_error!(req.prepare(&mut handle).exec());
-    println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
     try_error!(history::append(req, &resp));
-    try_error!(remember::remember(req, &resp));
+    try_error!(remember::remember(req, &resp, "last.yml"));
+    if !args.flag_remember_as.is_empty() {
+        try_error!(remember::remember(req, &resp, &args.flag_remember_as));
+    }
+
+    if args.flag_verbose {
+        let out = try_error!(history::get(&"0".to_string()));
+        println!("{}", out);
+    } else {
+        println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
+    }
+
 }
 

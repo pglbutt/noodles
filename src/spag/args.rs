@@ -26,10 +26,10 @@ Usage:
     spag env show [<environment>]
     spag env activate <environment>
     spag env deactivate
-    spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...]
+    spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...] [-v] [--remember-as <name>]
     spag request list [--dir <dir>]
     spag request show <file>
-    spag request <file> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...] [--dir <dir>]
+    spag request <file> [-v] [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...] [--dir <dir>] [--remember-as <name>]
     spag history
     spag history show <index>
 
@@ -39,6 +39,8 @@ Options:
     -e, --endpoint <endpoint>   Supply the endpoint
     -d, --data <data>           Supply the request body
     -E, --everything            Unset an entire environment
+    -v, --verbose               Print out more of the request and response
+    -r, --remember-as <name>    Additionally, remember this request under the given name
     --dir <dir>                 The directory containing request files
 
 Arguments:

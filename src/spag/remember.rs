@@ -12,10 +12,11 @@ use super::yaml_util;
 
 const REMEMBERS_DIR: &'static str = ".spag/remembers";
 
-pub fn remember(req: &SpagRequest, resp: &http::Response) -> Result<(), String> {
+pub fn remember(req: &SpagRequest, resp: &http::Response, remember_as: &str) -> Result<(), String> {
     file::ensure_dir_exists(REMEMBERS_DIR);
     let y = serialize(req, resp);
-    let output_file = Path::new(REMEMBERS_DIR).join("last.yml");
+    let name = file::ensure_extension(remember_as, ".yml");
+    let output_file = Path::new(REMEMBERS_DIR).join(name);
     yaml_util::dump_yaml_file(output_file.to_str().unwrap(), &y)
 }
 
