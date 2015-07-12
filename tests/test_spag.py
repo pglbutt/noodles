@@ -95,11 +95,10 @@ class TestHeaders(BaseTest):
         self.assertNotEqual(ret, 0)
         self.assertEqual(err, 'Error: -H option requires an argument\n')
 
-    @unittest.skip('Fails correctly, but needs a better error msg')
     def test_get_invalid_header(self):
         out, err, ret = run_spag('get', '/headers', '-e', ENDPOINT, '-H', 'poo')
         self.assertNotEqual(ret, 0)
-        self.assertEqual(err, 'Error: Invalid header!\n')
+        self.assertEqual(err, 'Invalid header "poo"\n')
 
     @unittest.skip('Not Implemented')
     def test_show_headers(self):
@@ -121,11 +120,10 @@ class TestHeaders(BaseTest):
 
 class TestGet(BaseTest):
 
-    @unittest.skip('Fails correctly, but needs a better error msg')
     def test_get_no_endpoint(self):
         out, err, ret = run_spag('get', '/auth')
         self.assertNotEqual(ret, 0)
-        self.assertEqual(err, 'Endpoint not set\n\n')
+        self.assertEqual(err, 'Endpoint not set\n')
 
     def test_get_supply_endpoint(self):
         out, err, ret = run_spag('get', '/auth', '-e', ENDPOINT)
@@ -324,6 +322,8 @@ class TestSpagEnvironments(BaseTest):
 
     def setUp(self):
         super(TestSpagEnvironments, self).setUp()
+        run_spag('env', 'unset', '--everything')
+        run_spag('env', 'deactivate')
         run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT)
         run_spag('env', 'set', 'dir=%s' % RESOURCES_DIR)
 
@@ -366,13 +366,11 @@ class TestSpagEnvironments(BaseTest):
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-    @unittest.skip('Fails correctly, but needs a better error msg')
     def test_spag_set_environment_failure(self):
         out, err, ret = run_spag('env', 'set')
-        self.assertEqual(err, 'Error: You must provide something to set!\n')
+        self.assertIn('Invalid arguments.', err)
         self.assertNotEqual(ret, 0)
 
-    @unittest.skip('Not Implemented')
     def test_set_endoint_and_header(self):
         out, err, ret = run_spag('env', 'set', 'endpoint', '%s' % ENDPOINT, 'headers.pglbutt', 'pglbutt')
         self.assertEqual(err, '')
@@ -381,6 +379,11 @@ class TestSpagEnvironments(BaseTest):
         out, err, ret = run_spag('get', '/headers')
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out), {"Pglbutt": "pglbutt"})
+
+    def test_spag_environment_activate_bad_env(self):
+        out, err, ret = run_spag('env', 'activate', 'ninnymuggins')
+        self.assertEqual(err, 'Tried to activate non-existent environment "ninnymuggins"\n')
+        self.assertEqual(ret, 1)
 
 
 class TestSpagRemembers(BaseTest):

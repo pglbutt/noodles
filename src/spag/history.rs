@@ -9,13 +9,19 @@ use super::yaml_util;
 use super::request::SpagRequest;
 use super::remember;
 
+const HISTORY_DIR: &'static str = ".spag";
 const HISTORY_FILE: &'static str = ".spag/history.yml";
 const HISTORY_LIMIT: usize = 100;
 
-pub fn append(req: &SpagRequest, resp: &http::Response) -> Result<(), String> {
+pub fn ensure_history_exists() {
     if !Path::new(HISTORY_FILE).exists() {
+        file::ensure_dir_exists(HISTORY_DIR);
         file::write_file(HISTORY_FILE, "[]");
     }
+}
+
+pub fn append(req: &SpagRequest, resp: &http::Response) -> Result<(), String> {
+    ensure_history_exists();
 
     let mut y = &mut try!(yaml_util::load_yaml_file(&HISTORY_FILE));
 
@@ -37,9 +43,7 @@ pub fn append(req: &SpagRequest, resp: &http::Response) -> Result<(), String> {
 }
 
 pub fn list() -> Result<Vec<String>, String> {
-    if !Path::new(HISTORY_FILE).exists() {
-        file::write_file(HISTORY_FILE, "[]");
-    }
+    ensure_history_exists();
 
     let mut result = Vec::new();
 
@@ -59,9 +63,7 @@ pub fn list() -> Result<Vec<String>, String> {
 }
 
 pub fn get(raw_index: &String) -> Result<String, String> {
-    if !Path::new(HISTORY_FILE).exists() {
-        file::write_file(HISTORY_FILE, "[]");
-    }
+    ensure_history_exists();
 
     let index = raw_index.parse().unwrap();
 

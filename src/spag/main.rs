@@ -83,12 +83,12 @@ fn spag_env_show(args: &Args) {
 }
 
 fn spag_env_activate(args: &Args) {
-    env::set_active_environment(&args.arg_environment);
+    try_error!(env::set_active_environment(&args.arg_environment));
     try_error!(env::show_environment(&args.arg_environment));
 }
 
 fn spag_env_deactivate() {
-    env::deactivate_environment();
+    try_error!(env::deactivate_environment());
 }
 
 fn spag_history(args: &Args) {
