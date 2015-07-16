@@ -6,8 +6,14 @@ use super::env;
 use super::yaml_util;
 use super::remember;
 
+/// These are the characters allowed to be used in template list items.  For shortcut syntax like
+/// "@<name>", we'll stop reading <name> once we see a character outside of this list.
+///
+/// To make shortcut syntax the usable in urls, don't include certain characters like '/' here.
+/// Otherwise, trying to do things like `spag get /things/@id/entries` won't work right because
+/// spag will find "@id/entries" as the item to substitute instead of "@id"
 const VALID_ITEM_NAME_CHARS: &'static str =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_";
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-";
 
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
@@ -76,20 +82,11 @@ fn substitute<'a>(options: &Vec<Token<'a>>, withs: &HashMap<&str, &str>
                 }
             },
             &Token::Request(name, ref key_path) => {
-                // return Err("substitution not implemented for requests".to_string());
-                // println!("sub Request {}.{:?}", name, key_path);
                 let key_path: Vec<&str> = key_path.iter().map(|k| k.as_str()).collect();
                 let poo = remember::find_remembered_key(name, &key_path);
-                // println!("{:?}", poo);
                 if let Ok(s) = poo {
-                  //  println!("got value '{}'", s);
                     return Ok(s.to_string());
                 }
-                //if let Ok(y) = remember::load_remembered_request(name) {
-                //    if let Some(&Yaml::String(ref val)) = yaml_util::get_nested_value(&y, key_path) {
-                //        return Ok(val.to_string());
-                //    }
-                //}
             },
             &Token::DefaultVal(val) => {
                 return Ok(val.to_string());
@@ -234,7 +231,7 @@ impl<'a> Tokenizer<'a> {
     fn read_brace_item(&mut self) -> Result<Token<'a>, String> {
         self.skip_whitespace();
         if self.eof() {
-            return Err("Empty item".to_string());
+            return Err("Expected a template list item, but found eof".to_string());
         } else if self.has("[") {
             self.read_env_item()
         } else {
@@ -247,8 +244,8 @@ impl<'a> Tokenizer<'a> {
     fn read_shortcut_item(&mut self) -> Result<Token<'a>, String> {
         let token =
             // If we have just one key, like @id, we'll get back a Token::With
-            // If we have many keys, we'll get back a Token::Request with the first key in the
-            // name and the remaining keys in the key_path
+            // If we have a key path, like @body.id, we'll get back a Token::Request
+            // with the first key in the name and the remaining keys in the key_path
             match try!(self.read_brace_item()) {
                 Token::Request(name, key_path) => {
                     let mut keys = vec!["response".to_string(), name.to_string()];
@@ -369,15 +366,20 @@ impl<'a> Tokenizer<'a> {
             let &(offset, c) = self.peek().unwrap();
             if !VALID_ITEM_NAME_CHARS.contains(c) {
                 end = offset;
+                // have specific error messages for a few common cases here
+                if start == end && self.has("}}") {
+                    return Err(format!(
+                        "Expected a template list item, but found the end of the list '}}}}'"));
+                } else if start == end && (self.has(",") || self.has(":")) {
+                    return Err(format!("Expected a template list item, but found '{}'", c));
+                } else if start == end {
+                    return Err(format!("Invalid character '{}' found in template item", c));
+                }
                 break;
             }
             self.next();
         }
-        if start == end {
-            Err("No item found".to_string())
-        } else {
-            Ok(&self.text[start..end])
-        }
+        Ok(&self.text[start..end])
     }
 
     /// Check if the current position starts with the given string
