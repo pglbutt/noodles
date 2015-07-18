@@ -65,6 +65,61 @@ pub fn untemplate(text: &str, withs: &HashMap<&str, &str>, shortcuts: bool
     Ok(result)
 }
 
+pub fn show_params(text: &str, use_shortcuts: bool) -> Result<String, String> {
+    let tokens = try!(Tokenizer::new(text, use_shortcuts).tokenize());
+    let mut result = String::new();
+    for token in tokens {
+        if let Token::Substitute(options) = token {
+            let msg = try!(show_params_for_options(&options));
+            result.push_str(&msg);
+        }
+    }
+    if result.is_empty() {
+        Ok("No parameters found in the request file.".to_string())
+    } else {
+        Ok(result.trim().to_string())
+    }
+}
+
+pub fn show_params_for_options<'a>(options: &Vec<Token<'a>>) -> Result<String, String> {
+    let mut result = String::new();
+    result.push_str(&format!("{} needs one of\n",
+                             try!(options_to_string(options))));
+    for option in options {
+        result.push_str("    * ");
+        //let option_string = try!(option_to_string(&option));
+        match option {
+            &Token::With(with) => {
+                result.push_str(&format!("flag \"--with {} <value>\"", with));
+            },
+            &Token::Env(name, ref key_path) => {
+                let message =
+                    if name.is_empty() {
+                        format!("key {:?} from the active environment", key_path)
+                    } else {
+                        format!("key {:?} from environment \"{}\"", key_path, name)
+                    };
+                result.push_str(&message);
+            },
+            &Token::Request(name, ref key_path) => {
+                let message =
+                    if name == "last" {
+                        format!("key {:?} from the previous request", key_path)
+                    } else {
+                        format!("key {:?} from the request saved as \"{}\"", key_path, name)
+                    };
+                result.push_str(&message);
+            },
+            &Token::DefaultVal(val) => {
+                result.push_str(&format!("defaults to \"{}\" if no matches are found", val));
+            },
+            _ => { result.push_str("BUG: got unsupported Token type") },
+        }
+        result.push_str("\n");
+    }
+    Ok(result)
+}
+
 fn substitute<'a>(options: &Vec<Token<'a>>, withs: &HashMap<&str, &str>
                   ) -> Result<String, String> {
     for option in options {
@@ -102,35 +157,50 @@ fn options_to_string<'a>(options: &Vec<Token<'a>>) -> Result<String, String> {
     // build a sensible error message from the options
     let mut result = String::from("{{");
     for option in options {
+        let option_string = try!(option_to_string(option));
         match option {
-            &Token::With(with) => {
-                result.push_str(&format!(" {},", with));
-            },
-            &Token::Env(name, ref key_path) => {
-                result.push_str(&format!(" [{}]", name));
-                for key in key_path {
-                    result.push_str(&format!(".{}", key));
-                }
-                result.push_str(",");
-            },
-            &Token::Request(name, ref key_path) => {
-                result.push_str(&format!(" {}", name));
-                for key in key_path {
-                    result.push_str(&format!(".{}", key));
-                }
-                result.push_str(",");
-            },
-            &Token::DefaultVal(val) => {
+            &Token::DefaultVal(_) => {
                 if result.ends_with(',') { result.pop(); }
-                result.push_str(&format!(": {}", val));
+                result.push_str(":");
+                result.push_str(&format!(" {}", option_string));
             },
-            _ => { return Err("BUG: Saw invalid enum option in substitute".to_string()); },
+            _ => {
+                result.push_str(&format!(" {}", option_string));
+                result.push_str(",");
+            },
         }
     }
     if result.ends_with(',') { result.pop(); }
     result.push_str(" }}");
     Ok(result)
 }
+
+fn option_to_string<'a>(option: &Token<'a>) -> Result<String, String> {
+    let mut result = String::new();
+    match option {
+        &Token::With(with) => {
+            result.push_str(&format!("{}", with));
+        },
+        &Token::Env(name, ref key_path) => {
+            result.push_str(&format!("[{}]", name));
+            for key in key_path {
+                result.push_str(&format!(".{}", key));
+            }
+        },
+        &Token::Request(name, ref key_path) => {
+            result.push_str(&format!("{}", name));
+            for key in key_path {
+                result.push_str(&format!(".{}", key));
+            }
+        },
+        &Token::DefaultVal(val) => {
+            result.push_str(&format!("{}", val));
+        },
+        _ => { return Err("BUG: Saw invalid enum option in substitute".to_string()); },
+    }
+    Ok(result)
+}
+
 
 pub struct Tokenizer<'a> {
     text: &'a str,

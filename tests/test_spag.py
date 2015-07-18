@@ -807,6 +807,21 @@ class TestSpagTemplate(BaseTest):
         _, err, _ = run_spag('get', '/things/@/')
         self.assertEqual(err.strip(), "Invalid character '/' found in template item")
 
+    def test_show_params(self):
+        out, err, ret = run_spag('request', 'show-params', 'show_params_test')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(out.strip(),
+            textwrap.dedent("""
+            {{ tenant, [].tenant, [myenv].tenant: noauth-project }} needs one of
+                * flag "--with tenant <value>"
+                * key ["tenant"] from the active environment
+                * key ["tenant"] from environment "myenv"
+                * defaults to "noauth-project" if no matches are found
+            {{ last.response.body.id, other.response.body.id }} needs one of
+                * key ["response", "body", "id"] from the previous request
+                * key ["response", "body", "id"] from the request saved as "other"
+            """).strip())
 
 class TestSpagHistory(BaseTest):
 

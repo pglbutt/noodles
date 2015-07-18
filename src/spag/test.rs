@@ -165,3 +165,23 @@ use super::yaml_util;
     let result = template::untemplate("@a", &withs, true);
     assert!(result.is_err());
 }
+
+#[test] fn test_show_params_for_options() {
+    let options = vec![
+        Token::With("with-key"),
+        Token::Env("", vec!["a", "b", "c"]),
+        Token::Env("myenv", vec!["c", "d", "e"]),
+        Token::Request("last", vec!["body".to_string(), "id".to_string()]),
+        Token::Request("other", vec!["headers".to_string(), "accept".to_string()]),
+    ];
+
+    let result = template::show_params_for_options(&options).unwrap();
+    let expected = concat!(
+        "{{ with-key, [].a.b.c, [myenv].c.d.e, last.body.id, other.headers.accept }} needs one of\n",
+        "    * flag \"--with with-key <value>\"\n",
+        "    * key [\"a\", \"b\", \"c\"] from the active environment\n",
+        "    * key [\"c\", \"d\", \"e\"] from environment \"myenv\"\n",
+        "    * key [\"body\", \"id\"] from the previous request\n",
+        "    * key [\"headers\", \"accept\"] from the request saved as \"other\"\n");
+    assert_eq!(result.as_str(), expected);
+}
