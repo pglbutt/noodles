@@ -392,6 +392,30 @@ class TestSpagEnvironments(BaseTest):
         self.assertEqual(err, 'Tried to activate non-existent environment "ninnymuggins"\n')
         self.assertEqual(ret, 1)
 
+    def test_spag_env_list(self):
+        # ensure the environments dir exists
+        _, err, ret = run_spag('env', 'show')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+        # create some other environment files
+        def touch(filename):
+            with open(filename, 'w') as f:
+                f.write("{}")
+        touch(".spag/environments/1.yml")
+        touch(".spag/environments/2.yml")
+        touch(".spag/environments/3.yml")
+
+        out, err, ret = run_spag('env', 'list')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(out.strip(),
+            textwrap.dedent("""
+            .spag/environments/1.yml
+            .spag/environments/2.yml
+            .spag/environments/3.yml
+            .spag/environments/default.yml
+            """).strip())
 
 class TestSpagRemembers(BaseTest):
 

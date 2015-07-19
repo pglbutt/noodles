@@ -26,6 +26,7 @@ Usage:
     spag env show [<environment>]
     spag env activate <environment>
     spag env deactivate
+    spag env list
     spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...] [-v] [--remember-as <name>]
     spag request list [--dir <dir>]
     spag request show <file>
@@ -56,6 +57,7 @@ Commands:
     env show        Print out the specified environment
     env activate    Activate an environment by name
     env deactivate  Deactivate the environment and return to the default environment
+    env list        List all known environments
     get             An HTTP GET request
     post            An HTTP POST request
     put             An HTTP PUT request

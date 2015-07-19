@@ -45,6 +45,8 @@ fn spag_env(args: &Args) {
         spag_env_activate(&args);
     } else if args.cmd_deactivate {
         spag_env_deactivate();
+    } else if args.cmd_list {
+        spag_env_list();
     } else {
         error!("BUG: Invalid command");
     }
@@ -89,6 +91,10 @@ fn spag_env_activate(args: &Args) {
 
 fn spag_env_deactivate() {
     try_error!(env::deactivate_environment());
+}
+
+fn spag_env_list() {
+    try_error!(env::list_environments());
 }
 
 fn spag_history(args: &Args) {
