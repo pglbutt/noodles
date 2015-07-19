@@ -109,6 +109,44 @@ class TestHeaders(BaseTest):
         self.assertEqual(ret, 0)
         self.assertEqual(json.loads(out).get('A'), 'c')
 
+class TestParams(BaseTest):
+
+    def test_one_request_param(self):
+        out, err, ret = run_spag('get', '/params?foo=bar', '-e', ENDPOINT)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {'foo': 'bar'})
+
+    def test_multiple_request_params(self):
+        out, err, ret = run_spag('get', '/params?foo=bar&bar=baz&pglbutt=pglbutt', '-e', ENDPOINT)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {'foo': 'bar',
+                                           'bar': 'baz',
+                                           'pglbutt': 'pglbutt'})
+
+    def test_request_params_substitution(self):
+        out, err, ret = run_spag('env', 'set', 'pglbutt', 'pglbutt')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        out, err, ret = run_spag('get', '/auth', '-e', ENDPOINT)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        out, err, ret = run_spag('get', '/params?foo=bar&bar=@token&pglbutt=@[].pglbutt',
+                                 '-e', ENDPOINT)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {'foo': 'bar',
+                                           'bar': 'abcde',
+                                           'pglbutt': 'pglbutt'})
+
+    def test_invalid_request_params(self):
+        out, err, ret = run_spag('get', '/params?foo=bar&bar', '-e', ENDPOINT)
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {'foo': 'bar',
+                                           'bar': ''})
+
 class TestGet(BaseTest):
 
     def test_get_no_endpoint(self):
