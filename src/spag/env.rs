@@ -89,6 +89,19 @@ pub fn show_environment(name: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn list_environments() -> Result<(), String> {
+    file::ensure_dir_exists(ENV_DIR);
+    let mut environments = try!(file::walk_dir(ENV_DIR));
+    environments.sort();
+    for filename in environments {
+        let filename = filename.to_str().unwrap();
+        if filename.ends_with(".yml") {
+            println!("{}", filename);
+        }
+    }
+    Ok(())
+}
+
 /// Loads the environment, sets a list of key-value pairs, and writes out the environment
 /// This supports nested key paths:
 ///     set_in_environment("default", ["a.b.c", "mini], ["efg", "wumbo"])
