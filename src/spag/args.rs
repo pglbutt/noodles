@@ -29,6 +29,7 @@ Usage:
     spag (get|post|put|patch|delete) <resource> [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...] [-v] [--remember-as <name>]
     spag request list [--dir <dir>]
     spag request show <file>
+    spag request show-params <file>
     spag request <file> [-v] [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...] [--dir <dir>] [--remember-as <name>]
     spag history
     spag history show <index>

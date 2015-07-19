@@ -5,7 +5,7 @@ use rustc_serialize::json::Json;
 
 use super::file;
 use super::template;
-use super::template::Token;
+use super::template::{Token, Choice};
 use super::remember;
 use super::yaml_util;
 
@@ -84,9 +84,9 @@ use super::yaml_util;
     let tokens = template::Tokenizer::new("{{wumbo, aaa.bbb : ccc }}", true).tokenize().unwrap();
     assert_eq!(tokens, vec![
         Token::Substitute(vec![
-            Token::With("wumbo"),
-            Token::Request("aaa", vec!["bbb".to_string()]),
-            Token::DefaultVal("ccc"),
+            Choice::With("wumbo"),
+            Choice::Request("aaa", vec!["bbb".to_string()]),
+            Choice::DefaultVal("ccc"),
         ])]);
 }
 
@@ -94,14 +94,14 @@ use super::yaml_util;
     let key_path = vec!["response".to_string(), "body".to_string(), "wumbo".to_string()];
 
     let tokens = template::Tokenizer::new("@wumbo", true).tokenize().unwrap();
-    assert_eq!(tokens, vec![ Token::Substitute(vec![ Token::Request("last", key_path.clone()) ])]);
+    assert_eq!(tokens, vec![ Token::Substitute(vec![ Choice::Request("last", key_path.clone()) ])]);
 
     let tokens = template::Tokenizer::new("@body.wumbo", true).tokenize().unwrap();
-    assert_eq!(tokens, vec![ Token::Substitute(vec![ Token::Request("last", key_path.clone()) ])]);
+    assert_eq!(tokens, vec![ Token::Substitute(vec![ Choice::Request("last", key_path.clone()) ])]);
 
     let key_path = vec!["response".to_string(), "body".to_string(), "things".to_string(), "0".to_string(), "id".to_string()];
     let tokens = template::Tokenizer::new("@body.things.0.id", true).tokenize().unwrap();
-    assert_eq!(tokens, vec![ Token::Substitute(vec![ Token::Request("last", key_path) ])]);
+    assert_eq!(tokens, vec![ Token::Substitute(vec![ Choice::Request("last", key_path) ])]);
 }
 
 #[test] fn test_tokenize_text_list_shortcut_together() {
@@ -111,9 +111,9 @@ use super::yaml_util;
     let key_path = vec!["response".to_string(), "body".to_string(), "id".to_string()];
     assert_eq!(tokens, vec![
         Token::Text("  pglbutt   "),
-        Token::Substitute(vec![ Token::Env("yaml_util", vec!["wumbo", "thing_1234567890"]) ]),
+        Token::Substitute(vec![ Choice::Env("yaml_util", vec!["wumbo", "thing_1234567890"]) ]),
         Token::Text("/poo"),
-        Token::Substitute(vec![ Token::Request("last", key_path) ]),
+        Token::Substitute(vec![ Choice::Request("last", key_path) ]),
         Token::Text("\t\nhello \t"),
     ]);
 }
@@ -122,7 +122,7 @@ use super::yaml_util;
     let tokens = template::Tokenizer::new("@a{{b}}", false).tokenize().unwrap();
     assert_eq!(tokens, vec![
         Token::Text("@a"),
-        Token::Substitute(vec![ Token::With("b") ]),
+        Token::Substitute(vec![ Choice::With("b") ]),
     ]);
 }
 
@@ -164,4 +164,24 @@ use super::yaml_util;
     assert!(result.is_err());
     let result = template::untemplate("@a", &withs, true);
     assert!(result.is_err());
+}
+
+#[test] fn test_show_params_for_choices() {
+    let options = vec![
+        Choice::With("with-key"),
+        Choice::Env("", vec!["a", "b", "c"]),
+        Choice::Env("myenv", vec!["c", "d", "e"]),
+        Choice::Request("last", vec!["body".to_string(), "id".to_string()]),
+        Choice::Request("other", vec!["headers".to_string(), "accept".to_string()]),
+    ];
+
+    let result = template::show_params_for_choices(&options).unwrap();
+    let expected = concat!(
+        "{{ with-key, [].a.b.c, [myenv].c.d.e, last.body.id, other.headers.accept }} needs one of\n",
+        "    * flag \"--with with-key <value>\"\n",
+        "    * key [\"a\", \"b\", \"c\"] from the active environment\n",
+        "    * key [\"c\", \"d\", \"e\"] from environment \"myenv\"\n",
+        "    * key [\"body\", \"id\"] from the previous request\n",
+        "    * key [\"headers\", \"accept\"] from the request saved as \"other\"\n");
+    assert_eq!(result.as_str(), expected);
 }

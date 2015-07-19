@@ -1,0 +1,4 @@
+method: GET
+uri: /{{ tenant, [].tenant, [myenv].tenant : noauth-project }}/things
+headers:
+    X-Auth-Token: {{ last.response.body.id, other.response.body.id }}

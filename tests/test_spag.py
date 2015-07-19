@@ -752,6 +752,77 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(ret, 0)
         self.assertEquals(json.loads(out), {"id": "wumbo"})
 
+    def test_error_using_shortcut_syntax_inside_template_list(self):
+        out, err, ret = run_spag('get', '/things/{{a, @id}}')
+        self.assertEqual(err.strip(), "Invalid character '@' found in template item")
+        self.assertEqual(ret, 1)
+        self.assertEqual(out, '')
+
+    def test_shortcut_syntax_allows_underscores_and_dashes(self):
+        out, err, ret = run_spag('env', 'set', '_my-wumbo_', 'mini')
+        self.assertEqual((err, ret), ('', 0))
+
+        out, err, ret = run_spag('request', 'post_thing',
+                                 '--with', 'thing_id', '@[]._my-wumbo_')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(json.loads(out), {"id": "mini"})
+
+    def test_error_message_on_empty_list(self):
+        _, err, _ = run_spag('get', '/things/{{}}')
+        self.assertEqual(err.strip(),
+            "Expected a template list item, but found the end of the list '}}'")
+
+    def test_error_message_on_unclosed_list(self):
+        eof_msg = "Expected a template list item, but found eof"
+        _, err, _ = run_spag('get', '/things/{{')
+        self.assertEqual(err.strip(), eof_msg)
+
+        _, err, _ = run_spag('get', '/things/@')
+        self.assertEqual(err.strip(), eof_msg)
+
+    def test_error_message_on_missing_list_item(self):
+        _, err, _ = run_spag('get', '/things/@:')
+        self.assertEqual(err.strip(), "Expected a template list item, but found ':'")
+
+        _, err, _ = run_spag('get', '/things/@ :')
+        self.assertEqual(err.strip(), "Expected a template list item, but found ':'")
+
+        _, err, _ = run_spag('get', '/things/{{ : ')
+        self.assertEqual(err.strip(), "Expected a template list item, but found ':'")
+
+        _, err, _ = run_spag('get', '/things/@,')
+        self.assertEqual(err.strip(), "Expected a template list item, but found ','")
+
+        _, err, _ = run_spag('get', '/things/@ ,')
+        self.assertEqual(err.strip(), "Expected a template list item, but found ','")
+
+        _, err, _ = run_spag('get', '/things/{{ : ')
+        self.assertEqual(err.strip(), "Expected a template list item, but found ':'")
+
+    def test_error_message_on_invalid_list_item(self):
+        _, err, _ = run_spag('get', '/things/{{/}} ')
+        self.assertEqual(err.strip(), "Invalid character '/' found in template item")
+
+        _, err, _ = run_spag('get', '/things/@/')
+        self.assertEqual(err.strip(), "Invalid character '/' found in template item")
+
+    def test_show_params(self):
+        out, err, ret = run_spag('request', 'show-params', 'show_params_test')
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+        self.assertEqual(out.strip(),
+            textwrap.dedent("""
+            {{ tenant, [].tenant, [myenv].tenant: noauth-project }} needs one of
+                * flag "--with tenant <value>"
+                * key ["tenant"] from the active environment
+                * key ["tenant"] from environment "myenv"
+                * defaults to "noauth-project" if no matches are found
+            {{ last.response.body.id, other.response.body.id }} needs one of
+                * key ["response", "body", "id"] from the previous request
+                * key ["response", "body", "id"] from the request saved as "other"
+            """).strip())
+
 class TestSpagHistory(BaseTest):
 
     def setUp(self):

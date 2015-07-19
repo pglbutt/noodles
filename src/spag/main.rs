@@ -114,6 +114,8 @@ fn spag_request(args: &Args) {
         spag_request_list(args);
     } else if args.cmd_show {
         spag_request_show(args);
+    } else if args.cmd_show_params {
+        spag_request_show_params(args);
     } else {
         spag_request_a_file(args);
     }
@@ -170,6 +172,15 @@ fn spag_request_show(args: &Args) {
     let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
     let contents = try_error!(file::read_file(&filename));
     println!("{}", contents);
+}
+
+fn spag_request_show_params(args: &Args) {
+    let dir = try_error!(args::get_dir(args));
+    let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
+    let contents = try_error!(file::read_file(&filename));
+    let use_shortcuts = true;
+    let out = try_error!(template::show_params(&contents, use_shortcuts));
+    println!("{}", out);
 }
 
 fn spag_request_list(args: &Args) {
