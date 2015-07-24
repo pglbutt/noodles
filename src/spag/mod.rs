@@ -29,6 +29,13 @@ macro_rules! try_error {
     })
 }
 
+#[macro_export]
+macro_rules! parse_args {
+    ($argtype:ident, $argv:expr) => (
+        $argtype::docopt().argv($argv.iter().map(|s| &s[..])).decode().unwrap_or_else(|e| e.exit())
+    )
+}
+
 pub mod args;
 pub mod env;
 pub mod file;
