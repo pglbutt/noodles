@@ -17,16 +17,17 @@ use super::yaml_util;
 
 docopt!(pub MainArgs derive Debug, "
 Usage:
-    spag <command> [<args>...]
     spag [options]
+    spag <command> [<args>...]
 
 Options:
-    -h, --help
+    -h --help       Show this message
 
 Commands:
-    env
-    request
-    history
+    env             Manage spag environments
+    request         Send predefined request files
+    history         View request history
+    <method>        Perform an HTTP request: get, post, patch, delete, etc
 ");
 
 docopt!(pub EnvArgs derive Debug, "
@@ -40,15 +41,13 @@ Usage:
     spag env list
 
 Options:
-    -h --help                  Show this message
-    -E --everything            Unset an entire environment
+    -h --help           Show this message
+    -E --everything     Unset an entire environment
 
 Arguments:
-    <endpoint>      The base url of the service, like 'http://localhost:5000'
-    <resource>      The path of an api resource, like '/v2/things'
-    <header>        An http header, like 'Content-type: application/json'
-    <environment>   The name of an environment, like 'default'
-    <index>         An index, starting at zero
+    <environment>       The name of an environment, like 'default'
+    <key>               The key name of a value to set, like 'headers.Content-type'
+    <val>               The value to set on the given key
 ");
 
 docopt!(pub RequestArgs derive Debug, "
@@ -57,23 +56,20 @@ Usage:
     spag request list [--dir <dir>]
     spag request show <file>
     spag request show-params <file>
-    spag request <file> [-v] [(-H <header>)...] [-e <endpoint>] [-d <data>] [(--with <key> <val>)...] [--dir <dir>] [--remember-as <name>]
+    spag request <file> [options] [(-H <header>)...] [(-w|--with <key> <val>)...]
 
 Options:
-    -h, --help                  Show this message
-    -H, --header <header>       Supply a header
-    -e, --endpoint <endpoint>   Supply the endpoint
-    -d, --data <data>           Supply the request body
-    -v, --verbose               Print out more of the request and response
-    -r, --remember-as <name>    Additionally, remember this request under the given name
+    -h --help                   Show this message
+    -H --header <header>        Supply a header
+    -e --endpoint <endpoint>    Supply the endpoint
+    -d --data <data>            Supply the request body
+    -v --verbose                Print out more of the request and response
+    -r --remember-as <name>     Additionally, remember this request under the given name
     --dir <dir>                 The directory containing request files
 
 Arguments:
     <endpoint>      The base url of the service, like 'http://localhost:5000'
-    <resource>      The path of an api resource, like '/v2/things'
     <header>        An http header, like 'Content-type: application/json'
-    <environment>   The name of an environment, like 'default'
-    <index>         An index, starting at zero
 ");
 
 docopt!(pub HistoryArgs derive Debug, "
@@ -82,7 +78,7 @@ Usage:
     spag history show <index>
 
 Options:
-    -h, --help      Show this message
+    -h --help       Show this message
 
 Arguments:
     <index>         An index, starting at zero
@@ -91,15 +87,15 @@ Arguments:
 docopt!(pub MethodArgs derive Debug, "
 Usage:
     spag <method> --help
-    spag <method> <path> [options] [(-H <header>)...] [(--with|-w <key> <val>)...]
+    spag <method> <path> [options] [(-H <header>)...]
 
 Options:
-    -h, --help                  Show this message
-    -H, --header <header>       Supply a header
-    -e, --endpoint <endpoint>   Supply the endpoint
-    -d, --data <data>           Supply the request body
-    -v, --verbose               Print out more of the request and response
-    -r, --remember-as <name>    Remember this request under the given name
+    -h --help                   Show this message
+    -H --header <header>        Supply a header
+    -e --endpoint <endpoint>    Supply the endpoint
+    -d --data <data>            Supply the request body
+    -v --verbose                Print out more of the request and response
+    -r --remember-as <name>     Remember this request under the given name
 
 Arguments:
     <method>        The http method: get, post, put, patch, delete

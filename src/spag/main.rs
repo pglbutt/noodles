@@ -43,8 +43,14 @@ pub fn main() {
         "get" | "post" | "put" | "patch" | "delete" => {
             spag_method(&args::parse_method_args(&argv))
         },
-        command if command.is_empty() => { error!("No command found"); },
-        command => { error!("Command {} not recognized", command); },
+        command if command.is_empty() => {
+            printerrln!("Received no command or options");
+            args::parse_main_args(&vec![argv[0].to_string(), "--help".to_string()]);
+        },
+        command => {
+            printerrln!("Command '{}' not recognized", command);
+            args::parse_main_args(&vec![argv[0].to_string(), "--help".to_string()]);
+        },
     }
 }
 
@@ -225,10 +231,7 @@ fn spag_request_list(args: &RequestArgs) {
 fn spag_method(args: &MethodArgs) {
     // untemplate the resource
     let use_shortcuts = true;
-    let withs: HashMap<String, String> = args::get_withs(&args.arg_key, &args.arg_val);
-    let withs: HashMap<&str, &str> = withs.iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
+    let withs: HashMap<&str, &str> = HashMap::new();
     let resource = try_error!(template::untemplate(&args.arg_path, &withs, use_shortcuts));
 
     let method = args::get_method_from_args(args);
