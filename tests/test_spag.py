@@ -580,6 +580,13 @@ class TestSpagTemplate(BaseTest):
         self.assertEqual(json.loads(out), {"id": "wumbo"})
         self.assertEqual(ret, 0)
 
+    def test_spag_template_with_keyword_short_flag(self):
+        out, err, ret = run_spag('request', 'templates/post_thing',
+                                 '-w', 'thing_id', 'wumbo')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out), {"id": "wumbo"})
+        self.assertEqual(ret, 0)
+
     def test_spag_template_no_value_given(self):
         out, err, ret = run_spag('request', 'templates/post_thing')
         self.assertEqual(err, 'Failed to substitute for {{ thing_id }}\n')

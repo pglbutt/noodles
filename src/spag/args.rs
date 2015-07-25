@@ -56,7 +56,7 @@ Usage:
     spag (request|r) ls [--dir <dir>]
     spag (request|r) cat <file>
     spag (request|r) inspect <file>
-    spag (request|r) <file> [options] [(-H <header>)...] [(-w|--with <key> <val>)...]
+    spag (request|r) <file> [options] [(-H <header>)...] [(-w <key> <val>|--with <key> <val>)...]
 
 Options:
     -h --help                   Show this message
