@@ -34,7 +34,7 @@ pub fn main() {
         "env" => {
             spag_env(&args::parse_env_args(&argv))
         },
-        "request" => {
+        "r" | "request" => {
             spag_request(&args::parse_request_args(&argv))
         },
         "history" => {

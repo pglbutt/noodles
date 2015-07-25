@@ -52,11 +52,11 @@ Arguments:
 
 docopt!(pub RequestArgs derive Debug, "
 Usage:
-    spag request --help
-    spag request ls [--dir <dir>]
-    spag request cat <file>
-    spag request inspect <file>
-    spag request <file> [options] [(-H <header>)...] [(-w|--with <key> <val>)...]
+    spag (request|r) --help
+    spag (request|r) ls [--dir <dir>]
+    spag (request|r) cat <file>
+    spag (request|r) inspect <file>
+    spag (request|r) <file> [options] [(-H <header>)...] [(-w|--with <key> <val>)...]
 
 Options:
     -h --help                   Show this message

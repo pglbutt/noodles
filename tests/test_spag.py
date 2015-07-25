@@ -265,11 +265,12 @@ class TestSpagFiles(BaseTest):
         run_spag('env', 'set', 'dir', RESOURCES_DIR)
 
     def test_spag_request_get(self):
-        for name in ('auth.yml', 'auth'):
-            out, err, ret = run_spag('request', name)
-            self.assertEqual(ret, 0)
-            self.assertEqual(json.loads(out), {"token": "abcde"})
-            self.assertEqual(err, '')
+        for command in ('r', 'request'):
+            for name in ('auth.yml', 'auth'):
+                out, err, ret = run_spag(command, name)
+                self.assertEqual(err, '')
+                self.assertEqual(ret, 0)
+                self.assertEqual(json.loads(out), {"token": "abcde"})
 
     def test_spag_request_post(self):
         out, err, ret = run_spag('request', 'v2/post_thing.yml')
