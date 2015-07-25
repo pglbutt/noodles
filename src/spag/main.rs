@@ -118,7 +118,7 @@ fn spag_env_ls() {
 }
 
 fn spag_history(args: &HistoryArgs) {
-    if args.cmd_show {
+    if !args.arg_index.is_empty() {
         spag_history_show(&args);
     } else {
         let short = try_error!(history::list());

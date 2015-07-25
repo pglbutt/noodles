@@ -75,7 +75,7 @@ Arguments:
 docopt!(pub HistoryArgs derive Debug, "
 Usage:
     spag history [options]
-    spag history show <index>
+    spag history <index>
 
 Options:
     -h --help       Show this message

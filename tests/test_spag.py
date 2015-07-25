@@ -314,24 +314,24 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(json.loads(out), {"Hello": "abcde"})
         self.assertEqual(ret, 0)
 
-    def test_spag_request_list_w_absolute_dir(self):
+    def test_spag_request_ls_w_absolute_dir(self):
         abspath = os.path.abspath(RESOURCES_DIR)
         _, err, ret = run_spag('env', 'set', 'dir', abspath)
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
         out, err, ret = run_spag('request', 'ls')
-        self._check_spag_request_list(*run_spag('request', 'ls'))
+        self._check_spag_request_ls(*run_spag('request', 'ls'))
 
-    def test_spag_request_list_w_relative_dir(self):
+    def test_spag_request_ls_w_relative_dir(self):
         relpath = os.path.relpath(RESOURCES_DIR)
         _, err, ret = run_spag('env', 'set', 'dir', relpath)
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-        self._check_spag_request_list(*run_spag('request', 'ls'))
+        self._check_spag_request_ls(*run_spag('request', 'ls'))
 
-    def _check_spag_request_list(self, out, err, ret):
+    def _check_spag_request_ls(self, out, err, ret):
         def parse(text):
             return text.split()
         expected = """
@@ -348,7 +348,7 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(parse(out), parse(expected))
         self.assertEqual(ret, 0)
 
-    def test_spag_show_request(self):
+    def test_spag_cat_request(self):
         out, err, ret = run_spag('request', 'cat', 'auth.yml')
         self.assertEqual(err, '')
         self.assertEqual(out.strip(),
@@ -935,22 +935,22 @@ class TestSpagHistory(BaseTest):
             lambda: run_spag('delete', '/things/wumbo'),
             expected='0: DELETE %s/things/wumbo\n' % ENDPOINT)
 
-    def test_spag_history_show(self):
+    def test_spag_history_show_index(self):
         # Make a request
         _, err, _ = run_spag('get', '/things')
 
-        # check 'spag history show'
-        out, err, ret = run_spag('history', 'show', '0')
+        # check 'spag history <index>'
+        out, err, ret = run_spag('history', '0')
         self.assertEqual(err, '')
         self.assertIn('GET %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
 
-    def test_spag_history_show_invalid_id(self):
+    def test_spag_history_show_index_invalid_id(self):
         # Make a request
         _, err, _ = run_spag('get', '/things')
 
         # Request an invalid ID
-        out, err, ret = run_spag('history', 'show', '9')
+        out, err, ret = run_spag('history', '9')
         self.assertEqual(err, 'No request at #9\n')
         self.assertNotEqual(ret, 0)
 
@@ -974,8 +974,8 @@ class TestSpagHistory(BaseTest):
             .format(ENDPOINT))
         self.assertEqual(ret, 0)
 
-        # check 'spag history show'
-        out, err, ret = run_spag('history', 'show', '1')
+        # check 'spag history <index>'
+        out, err, ret = run_spag('history', '1')
         self.assertEqual(err, '')
         self.assertIn('POST %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
@@ -1000,8 +1000,8 @@ class TestSpagHistory(BaseTest):
             .format(ENDPOINT))
         self.assertEqual(ret, 0)
 
-        # check 'spag history show'
-        out, err, ret = run_spag('history', 'show', '1')
+        # check 'spag history <index>'
+        out, err, ret = run_spag('history', '1')
         self.assertEqual(err, '')
         self.assertIn('POST %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
