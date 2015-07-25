@@ -33,12 +33,12 @@ Commands:
 docopt!(pub EnvArgs derive Debug, "
 Usage:
     spag env --help
-    spag env set (<key> <val>)...
-    spag env unset [(<key>)...] [-E]
-    spag env show [<environment>]
+    spag env ls
+    spag env cat [<environment>]
     spag env activate <environment>
     spag env deactivate
-    spag env list
+    spag env set (<key> <val>)...
+    spag env unset [(<key>)...] [-E]
 
 Options:
     -h --help           Show this message
@@ -53,9 +53,9 @@ Arguments:
 docopt!(pub RequestArgs derive Debug, "
 Usage:
     spag request --help
-    spag request list [--dir <dir>]
-    spag request show <file>
-    spag request show-params <file>
+    spag request ls [--dir <dir>]
+    spag request cat <file>
+    spag request inspect <file>
     spag request <file> [options] [(-H <header>)...] [(-w|--with <key> <val>)...]
 
 Options:

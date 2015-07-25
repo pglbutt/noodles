@@ -55,8 +55,8 @@ pub fn main() {
 }
 
 fn spag_env(args: &EnvArgs) {
-    if args.cmd_show {
-        spag_env_show(&args);
+    if args.cmd_cat {
+        spag_env_cat(&args);
     } else if args.cmd_set {
         spag_env_set(&args);
     } else if args.cmd_unset {
@@ -65,8 +65,8 @@ fn spag_env(args: &EnvArgs) {
         spag_env_activate(&args);
     } else if args.cmd_deactivate {
         spag_env_deactivate();
-    } else if args.cmd_list {
-        spag_env_list();
+    } else if args.cmd_ls {
+        spag_env_ls();
     } else {
         error!("BUG: Invalid command");
     }
@@ -100,7 +100,7 @@ fn spag_env_unset(args: &EnvArgs) {
     }
 }
 
-fn spag_env_show(args: &EnvArgs) {
+fn spag_env_cat(args: &EnvArgs) {
     try_error!(env::show_environment(&args.arg_environment));
 }
 
@@ -113,7 +113,7 @@ fn spag_env_deactivate() {
     try_error!(env::deactivate_environment());
 }
 
-fn spag_env_list() {
+fn spag_env_ls() {
     try_error!(env::list_environments());
 }
 
@@ -136,12 +136,12 @@ fn spag_history_show(args: &HistoryArgs) {
 }
 
 fn spag_request(args: &RequestArgs) {
-    if args.cmd_list {
-        spag_request_list(args);
-    } else if args.cmd_show {
-        spag_request_show(args);
-    } else if args.cmd_show_params {
-        spag_request_show_params(args);
+    if args.cmd_ls {
+        spag_request_ls(args);
+    } else if args.cmd_cat {
+        spag_request_cat(args);
+    } else if args.cmd_inspect {
+        spag_request_inspect(args);
     } else {
         spag_request_a_file(args);
     }
@@ -193,14 +193,14 @@ fn spag_request_a_file(args: &RequestArgs) {
     }
 }
 
-fn spag_request_show(args: &RequestArgs) {
+fn spag_request_cat(args: &RequestArgs) {
     let dir = try_error!(args::get_dir(args));
     let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
     let contents = try_error!(file::read_file(&filename));
     println!("{}", contents);
 }
 
-fn spag_request_show_params(args: &RequestArgs) {
+fn spag_request_inspect(args: &RequestArgs) {
     let dir = try_error!(args::get_dir(args));
     let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
     let contents = try_error!(file::read_file(&filename));
@@ -209,7 +209,7 @@ fn spag_request_show_params(args: &RequestArgs) {
     println!("{}", out);
 }
 
-fn spag_request_list(args: &RequestArgs) {
+fn spag_request_ls(args: &RequestArgs) {
     let dir = try_error!(args::get_dir(args));
     let filenames = try_error!(file::walk_dir(&dir));
     let mut yaml_files: Vec<&PathBuf> = filenames.iter()
