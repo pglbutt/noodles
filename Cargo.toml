@@ -8,8 +8,12 @@ name = "noodles"
 doctest = false
 
 [dependencies]
-docopt = "0.6.66"
-docopt_macros = "0.6.66"
+docopt = "0.6.69"
+# docopt_macros = "0.6.69" When docopt_macros cuts a new release this can come back
 rustc-serialize = "0.3.15"
 curl = "0.2.10"
-yaml-rust = "0.2.0"
+yaml-rust = "0.2.1"
+
+[dependencies.docopt_macros]
+git = "https://github.com/docopt/docopt.rs.git"
+rev = "ba5cf65299c5bf4a67ae7c8efae2791a19f612c4"
