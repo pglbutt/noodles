@@ -1,4 +1,4 @@
-use std::str::from_utf8;
+use std::str;
 use std::path::Path;
 
 use rustc_serialize::json::Json;
@@ -27,14 +27,18 @@ pub fn serialize(req: &SpagRequest, resp: &http::Response) -> Yaml {
     yaml_util::set_nested_value(&mut inner_y, &["request", "method"], req.get_method_string());
     yaml_util::set_nested_value(&mut inner_y, &["request", "uri"], req.uri.as_str());
     yaml_util::set_nested_value(&mut inner_y, &["request", "endpoint"], req.endpoint.as_str());
-    yaml_util::set_nested_value(&mut inner_y, &["request", "body"], req.body.as_str());
+
+    let pretty_req_body = yaml_util::pretty_json(req.body.as_str());
+    yaml_util::set_nested_value(&mut inner_y, &["request", "body"], pretty_req_body.as_str());
 
     for (key, value) in &req.headers {
         yaml_util::set_nested_value(&mut inner_y, &["request", "headers", key], value.as_str());
     }
 
     // Add the response data
-    yaml_util::set_nested_value(&mut inner_y, &["response", "body"], from_utf8(resp.get_body()).unwrap());
+    let pretty_resp_body = yaml_util::pretty_json(str::from_utf8(resp.get_body()).unwrap());
+    yaml_util::set_nested_value(&mut inner_y, &["response", "body"], pretty_resp_body.as_str());
+
     yaml_util::set_nested_value(&mut inner_y, &["response", "status"], resp.get_code().to_string().as_str());
     for (key, value) in resp.get_headers() {
         yaml_util::set_nested_value(&mut inner_y, &["response", "headers", key], value[0].as_str());

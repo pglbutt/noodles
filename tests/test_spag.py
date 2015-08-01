@@ -198,6 +198,12 @@ class TestGet(BaseTest):
         self.assertEqual(out.strip()[:len(prefix)], prefix)
         self.assertEqual(out.strip()[-len(suffix):], suffix)
 
+    def test_get_non_formatted_json(self):
+        out, err, ret = run_spag('get', '/rawjson', '-e', ENDPOINT)
+        self.assertEqual(ret, 0)
+        self.assertEqual(out, '{\n  "foo": "bar"\n}\n')
+        self.assertEqual(json.loads(out), {"foo": "bar"})
+
 class TestPost(BaseTest):
 
     def test_spag_post(self):
@@ -788,7 +794,9 @@ class TestSpagTemplate(BaseTest):
             Accept: application/json
             Content-Type: application/json
             Body:
-            {    "id": "wumbo"}
+            {
+              "id": "wumbo"
+            }
             -------------------- Response ---------------------
             Status code 201
             content-length: 19
@@ -912,7 +920,7 @@ class TestSpagHistory(BaseTest):
 
     def test_post_method_history(self):
         self._run_test_method_history(
-            lambda: run_spag('post', '/things', '-d' ,'{"id": "posty"}'),
+            lambda: run_spag('post', '/things', '-d', '{"id": "posty"}'),
             expected='0: POST %s/things\n' % ENDPOINT)
 
     def test_put_method_history(self):

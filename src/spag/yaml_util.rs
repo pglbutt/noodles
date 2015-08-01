@@ -3,6 +3,7 @@ use yaml_rust::Yaml;
 use yaml_rust::yaml::Hash;
 use yaml_rust::YamlEmitter;
 use yaml_rust::YamlLoader;
+use rustc_serialize::json;
 
 use super::file;
 
@@ -108,4 +109,12 @@ pub fn get_nested_value<'a>(y: &'a Yaml, keys: &[&str]) -> Option<&'a Yaml> {
     } else {
         None
     }
+}
+
+// If body can be serialized to JSON, return a pretty JSON string, otherwise return original string 
+pub fn pretty_json(resp_output: &str) -> String {
+    match json::Json::from_str(&resp_output) {
+        Ok(val) => return format!("{}", val.pretty()),
+        Err(_) => return resp_output.to_string(),
+    };
 }

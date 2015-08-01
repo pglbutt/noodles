@@ -185,3 +185,10 @@ use super::yaml_util;
         "    * key [\"headers\", \"accept\"] from the request saved as \"other\"\n");
     assert_eq!(result.as_str(), expected);
 }
+
+#[test] fn test_pretty_json() {
+    let text = yaml_util::pretty_json("blah");
+    assert_eq!(text, "blah");
+    let text = yaml_util::pretty_json("{\"id\": \"foo\"}");
+    assert_eq!(text, "{\n  \"id\": \"foo\"\n}");
+}

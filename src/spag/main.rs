@@ -248,6 +248,7 @@ fn spag_method(args: &MethodArgs) {
 fn do_request(req: &SpagRequest, remember_as: &str, verbose: bool) {
     let mut handle = http::handle();
     let resp = try_error!(req.prepare(&mut handle).exec());
+
     try_error!(history::append(req, &resp));
     try_error!(remember::remember(req, &resp, "last.yml"));
     if !remember_as.is_empty() {
@@ -258,8 +259,8 @@ fn do_request(req: &SpagRequest, remember_as: &str, verbose: bool) {
         let out = try_error!(history::get(&"0".to_string()));
         println!("{}", out);
     } else {
-        println!("{}", String::from_utf8(resp.get_body().to_vec()).unwrap());
+        let output = std::str::from_utf8(resp.get_body()).unwrap();
+        println!("{}", yaml_util::pretty_json(output));
     }
 
 }
-

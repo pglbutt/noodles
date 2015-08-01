@@ -73,6 +73,9 @@ def headers():
     return jsonify({key: value for key, value in
                     request.headers.items() if key not in ignored_headers})
 
+@app.route('/rawjson', methods=['GET'])
+def raw_json():
+    return '{"foo": "bar"}'
 
 @app.route('/params', methods=['GET'])
 def params():
