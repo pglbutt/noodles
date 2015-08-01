@@ -1,3 +1,14 @@
+/// A macro to print to stderr, just like println!
+macro_rules! printerrln (
+    ($($arg:tt)*) => (
+        match writeln!(&mut ::std::io::stderr(), $($arg)* ) {
+            Ok(_) => {},
+            Err(x) => panic!("Unable to write to stderr: {}", x),
+        }
+    )
+);
+
+
 /// Formats a string which is printed to stderr, and exits with status code 1
 ///
 /// ```
@@ -6,10 +17,7 @@
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => ({
-        match writeln!(&mut std::io::stderr(), $($arg)*) {
-            Ok(_) => {},
-            Err(x) => panic!("Unable to write to stderr: {}", x),
-        }
+        printerrln!($($arg)*);
         std::process::exit(1);
     })
 }
@@ -27,6 +35,13 @@ macro_rules! try_error {
             Err(err) => error!("{}", err),
         }
     })
+}
+
+#[macro_export]
+macro_rules! parse_args {
+    ($argtype:ident, $argv:expr) => (
+        $argtype::docopt().argv($argv.iter().map(|s| &s[..])).decode().unwrap_or_else(|e| e.exit())
+    )
 }
 
 pub mod args;

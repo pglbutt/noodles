@@ -18,6 +18,19 @@ V2_RESOURCES_DIR = os.path.join(RESOURCES_DIR, 'v2')
 SPAG_REMEMBERS_DIR = '.spag/remembers'
 SPAG_HISTORY_FILE = '.spag/history.yml'
 
+def rm_dir(dirname):
+    try:
+        # both os.removedirs and os.rmdir don't work on non-empty dirs
+        shutil.rmtree(dirname)
+    except OSError:
+        pass
+
+def rm_file(filename):
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
+
 def run_spag(*args):
     """
     :returns: A tuple (out, err, ret) where
@@ -36,33 +49,16 @@ class BaseTest(unittest.TestCase):
     # enable long diffs
     maxDiff = None
 
-    @classmethod
-    def _rm_remembers_dir(cls):
-        try:
-            # both os.removedirs and os.rmdir don't work on non-empty dirs
-            shutil.rmtree(SPAG_REMEMBERS_DIR)
-            pass
-        except OSError:
-            pass
-
-    @classmethod
-    def _rm_history_file(cls):
-        try:
-            os.remove(SPAG_HISTORY_FILE)
-            pass
-        except OSError:
-            pass
-
     def setUp(self):
         super(BaseTest, self).setUp()
         run_spag('get', '/clear', '-e', ENDPOINT)
         run_spag('env', 'unset', '--everything')
-        self._rm_remembers_dir()
-        self._rm_history_file()
+        rm_dir(SPAG_REMEMBERS_DIR)
+        rm_file(SPAG_HISTORY_FILE)
 
     def tearDown(self):
-        self._rm_remembers_dir()
-        self._rm_history_file()
+        rm_dir(SPAG_REMEMBERS_DIR)
+        rm_file(SPAG_HISTORY_FILE)
         super(BaseTest, self).tearDown()
 
 
@@ -269,11 +265,12 @@ class TestSpagFiles(BaseTest):
         run_spag('env', 'set', 'dir', RESOURCES_DIR)
 
     def test_spag_request_get(self):
-        for name in ('auth.yml', 'auth'):
-            out, err, ret = run_spag('request', name)
-            self.assertEqual(ret, 0)
-            self.assertEqual(json.loads(out), {"token": "abcde"})
-            self.assertEqual(err, '')
+        for command in ('r', 'request'):
+            for name in ('auth.yml', 'auth'):
+                out, err, ret = run_spag(command, name)
+                self.assertEqual(err, '')
+                self.assertEqual(ret, 0)
+                self.assertEqual(json.loads(out), {"token": "abcde"})
 
     def test_spag_request_post(self):
         out, err, ret = run_spag('request', 'v2/post_thing.yml')
@@ -317,24 +314,24 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(json.loads(out), {"Hello": "abcde"})
         self.assertEqual(ret, 0)
 
-    def test_spag_request_list_w_absolute_dir(self):
+    def test_spag_request_ls_w_absolute_dir(self):
         abspath = os.path.abspath(RESOURCES_DIR)
         _, err, ret = run_spag('env', 'set', 'dir', abspath)
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-        out, err, ret = run_spag('request', 'list')
-        self._check_spag_request_list(*run_spag('request', 'list'))
+        out, err, ret = run_spag('request', 'ls')
+        self._check_spag_request_ls(*run_spag('request', 'ls'))
 
-    def test_spag_request_list_w_relative_dir(self):
+    def test_spag_request_ls_w_relative_dir(self):
         relpath = os.path.relpath(RESOURCES_DIR)
         _, err, ret = run_spag('env', 'set', 'dir', relpath)
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-        self._check_spag_request_list(*run_spag('request', 'list'))
+        self._check_spag_request_ls(*run_spag('request', 'ls'))
 
-    def _check_spag_request_list(self, out, err, ret):
+    def _check_spag_request_ls(self, out, err, ret):
         def parse(text):
             return text.split()
         expected = """
@@ -351,8 +348,8 @@ class TestSpagFiles(BaseTest):
         self.assertEqual(parse(out), parse(expected))
         self.assertEqual(ret, 0)
 
-    def test_spag_show_request(self):
-        out, err, ret = run_spag('request', 'show', 'auth.yml')
+    def test_spag_cat_request(self):
+        out, err, ret = run_spag('request', 'cat', 'auth.yml')
         self.assertEqual(err, '')
         self.assertEqual(out.strip(),
             textwrap.dedent("""
@@ -378,7 +375,7 @@ class TestSpagEnvironments(BaseTest):
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-        out, err, ret = run_spag('env', 'show')
+        out, err, ret = run_spag('env', 'cat')
         self.assertIn('\"endpoint\": \"abcdefgh\"', out)
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
@@ -387,7 +384,7 @@ class TestSpagEnvironments(BaseTest):
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-        out, err, ret = run_spag('env', 'show')
+        out, err, ret = run_spag('env', 'cat')
         self.assertEqual(out, '---\n{}\n')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
@@ -406,7 +403,7 @@ class TestSpagEnvironments(BaseTest):
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
 
-        out, err, ret = run_spag('env', 'show')
+        out, err, ret = run_spag('env', 'cat')
         self.assertIn('\"endpoint\": \"abcdefgh\"', out)
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
@@ -430,21 +427,18 @@ class TestSpagEnvironments(BaseTest):
         self.assertEqual(err, 'Tried to activate non-existent environment "ninnymuggins"\n')
         self.assertEqual(ret, 1)
 
-    def test_spag_env_list(self):
-        # ensure the environments dir exists
-        _, err, ret = run_spag('env', 'show')
-        self.assertEqual(err, '')
-        self.assertEqual(ret, 0)
-
-        # create some other environment files
+    def test_spag_env_ls(self):
+        # create some environment files
         def touch(filename):
             with open(filename, 'w') as f:
                 f.write("{}")
+            self.addCleanup(rm_file, filename)
+
         touch(".spag/environments/1.yml")
         touch(".spag/environments/2.yml")
         touch(".spag/environments/3.yml")
 
-        out, err, ret = run_spag('env', 'list')
+        out, err, ret = run_spag('env', 'ls')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertEqual(out.strip(),
@@ -582,6 +576,13 @@ class TestSpagTemplate(BaseTest):
     def test_spag_template_with_keyword(self):
         out, err, ret = run_spag('request', 'templates/post_thing',
                                  '--with', 'thing_id', 'wumbo')
+        self.assertEqual(err, '')
+        self.assertEqual(json.loads(out), {"id": "wumbo"})
+        self.assertEqual(ret, 0)
+
+    def test_spag_template_with_keyword_short_flag(self):
+        out, err, ret = run_spag('request', 'templates/post_thing',
+                                 '-w', 'thing_id', 'wumbo')
         self.assertEqual(err, '')
         self.assertEqual(json.loads(out), {"id": "wumbo"})
         self.assertEqual(ret, 0)
@@ -869,8 +870,8 @@ class TestSpagTemplate(BaseTest):
         _, err, _ = run_spag('get', '/things/@/')
         self.assertEqual(err.strip(), "Invalid character '/' found in template item")
 
-    def test_show_params(self):
-        out, err, ret = run_spag('request', 'show-params', 'show_params_test')
+    def test_inspect(self):
+        out, err, ret = run_spag('request', 'inspect', 'show_params_test')
         self.assertEqual(err, '')
         self.assertEqual(ret, 0)
         self.assertEqual(out.strip(),
@@ -934,22 +935,22 @@ class TestSpagHistory(BaseTest):
             lambda: run_spag('delete', '/things/wumbo'),
             expected='0: DELETE %s/things/wumbo\n' % ENDPOINT)
 
-    def test_spag_history_show(self):
+    def test_spag_history_show_index(self):
         # Make a request
         _, err, _ = run_spag('get', '/things')
 
-        # check 'spag history show'
-        out, err, ret = run_spag('history', 'show', '0')
+        # check 'spag history <index>'
+        out, err, ret = run_spag('history', '0')
         self.assertEqual(err, '')
         self.assertIn('GET %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
 
-    def test_spag_history_show_invalid_id(self):
+    def test_spag_history_show_index_invalid_id(self):
         # Make a request
         _, err, _ = run_spag('get', '/things')
 
         # Request an invalid ID
-        out, err, ret = run_spag('history', 'show', '9')
+        out, err, ret = run_spag('history', '9')
         self.assertEqual(err, 'No request at #9\n')
         self.assertNotEqual(ret, 0)
 
@@ -973,8 +974,8 @@ class TestSpagHistory(BaseTest):
             .format(ENDPOINT))
         self.assertEqual(ret, 0)
 
-        # check 'spag history show'
-        out, err, ret = run_spag('history', 'show', '1')
+        # check 'spag history <index>'
+        out, err, ret = run_spag('history', '1')
         self.assertEqual(err, '')
         self.assertIn('POST %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)
@@ -999,8 +1000,8 @@ class TestSpagHistory(BaseTest):
             .format(ENDPOINT))
         self.assertEqual(ret, 0)
 
-        # check 'spag history show'
-        out, err, ret = run_spag('history', 'show', '1')
+        # check 'spag history <index>'
+        out, err, ret = run_spag('history', '1')
         self.assertEqual(err, '')
         self.assertIn('POST %s/things' % ENDPOINT, out)
         self.assertEqual(ret, 0)

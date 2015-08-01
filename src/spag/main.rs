@@ -10,7 +10,12 @@ use curl::http;
 use yaml_rust::Yaml;
 
 use super::args;
-use super::args::Args;
+use super::args::EnvArgs;
+use super::args::MainArgs;
+use super::args::MethodArgs;
+use super::args::RequestArgs;
+use super::args::HistoryArgs;
+
 use super::env;
 use super::file;
 use super::history;
@@ -22,21 +27,36 @@ use super::yaml_util;
 
 
 pub fn main() {
-    let args: Args = args::parse_args();
-    if args.cmd_request {
-        spag_request(&args);
-    } else if args.cmd_history {
-        spag_history(&args);
-    } else if args.cmd_env {
-        spag_env(&args);
-    } else if args.cmd_get || args.cmd_post || args.cmd_put || args.cmd_patch || args.cmd_delete {
-        spag_method(&args);
+    let argv: Vec<String> = std::env::args().collect();
+    let main_argv: Vec<String> = std::env::args().take(2).collect();
+    let args: MainArgs = args::parse_main_args(&main_argv);
+    match args.arg_command.as_str() {
+        "env" => {
+            spag_env(&args::parse_env_args(&argv))
+        },
+        "r" | "request" => {
+            spag_request(&args::parse_request_args(&argv))
+        },
+        "history" => {
+            spag_history(&args::parse_history_args(&argv))
+        },
+        "get" | "post" | "put" | "patch" | "delete" => {
+            spag_method(&args::parse_method_args(&argv))
+        },
+        command if command.is_empty() => {
+            printerrln!("Received no command or options");
+            args::parse_main_args(&vec![argv[0].to_string(), "--help".to_string()]);
+        },
+        command => {
+            printerrln!("Command '{}' not recognized", command);
+            args::parse_main_args(&vec![argv[0].to_string(), "--help".to_string()]);
+        },
     }
 }
 
-fn spag_env(args: &Args) {
-    if args.cmd_show {
-        spag_env_show(&args);
+fn spag_env(args: &EnvArgs) {
+    if args.cmd_cat {
+        spag_env_cat(&args);
     } else if args.cmd_set {
         spag_env_set(&args);
     } else if args.cmd_unset {
@@ -45,16 +65,16 @@ fn spag_env(args: &Args) {
         spag_env_activate(&args);
     } else if args.cmd_deactivate {
         spag_env_deactivate();
-    } else if args.cmd_list {
-        spag_env_list();
+    } else if args.cmd_ls {
+        spag_env_ls();
     } else {
         error!("BUG: Invalid command");
     }
 }
 
-fn spag_env_set(args: &Args) {
+fn spag_env_set(args: &EnvArgs) {
     let use_shortcuts = true;
-    let withs: HashMap<String, String> = args::get_withs(args);
+    let withs: HashMap<String, String> = args::get_withs(&args.arg_key, &args.arg_val);
     let withs: HashMap<&str, &str> = withs.iter()
         .map(|(k, v)| (k.as_str(), v.as_str()))
         .collect();
@@ -70,7 +90,7 @@ fn spag_env_set(args: &Args) {
     try_error!(env::show_environment(&args.arg_environment));
 }
 
-fn spag_env_unset(args: &Args) {
+fn spag_env_unset(args: &EnvArgs) {
     if !args.flag_everything {
         try_error!(env::unset_in_environment(&args.arg_environment, &args.arg_key));
         try_error!(env::show_environment(&args.arg_environment));
@@ -80,11 +100,11 @@ fn spag_env_unset(args: &Args) {
     }
 }
 
-fn spag_env_show(args: &Args) {
+fn spag_env_cat(args: &EnvArgs) {
     try_error!(env::show_environment(&args.arg_environment));
 }
 
-fn spag_env_activate(args: &Args) {
+fn spag_env_activate(args: &EnvArgs) {
     try_error!(env::set_active_environment(&args.arg_environment));
     try_error!(env::show_environment(&args.arg_environment));
 }
@@ -93,12 +113,12 @@ fn spag_env_deactivate() {
     try_error!(env::deactivate_environment());
 }
 
-fn spag_env_list() {
+fn spag_env_ls() {
     try_error!(env::list_environments());
 }
 
-fn spag_history(args: &Args) {
-    if args.cmd_show {
+fn spag_history(args: &HistoryArgs) {
+    if !args.arg_index.is_empty() {
         spag_history_show(&args);
     } else {
         let short = try_error!(history::list());
@@ -110,27 +130,27 @@ fn spag_history(args: &Args) {
     }
 }
 
-fn spag_history_show(args: &Args) {
+fn spag_history_show(args: &HistoryArgs) {
     let out = try_error!(history::get(&args.arg_index));
     println!("{}", out);
 }
 
-fn spag_request(args: &Args) {
-    if args.cmd_list {
-        spag_request_list(args);
-    } else if args.cmd_show {
-        spag_request_show(args);
-    } else if args.cmd_show_params {
-        spag_request_show_params(args);
+fn spag_request(args: &RequestArgs) {
+    if args.cmd_ls {
+        spag_request_ls(args);
+    } else if args.cmd_cat {
+        spag_request_cat(args);
+    } else if args.cmd_inspect {
+        spag_request_inspect(args);
     } else {
         spag_request_a_file(args);
     }
 }
 
-fn spag_request_a_file(args: &Args) {
-    let endpoint = try_error!(args::get_endpoint(args));
+fn spag_request_a_file(args: &RequestArgs) {
+    let endpoint = try_error!(args::get_endpoint(&args.flag_endpoint));
     let dir = try_error!(args::get_dir(args));
-    let withs: HashMap<String, String> = args::get_withs(args);
+    let withs: HashMap<String, String> = args::get_withs(&args.arg_key, &args.arg_val);
     let withs: HashMap<&str, &str> = withs.iter()
         .map(|(k, v)| (k.as_str(), v.as_str()))
         .collect();
@@ -150,7 +170,7 @@ fn spag_request_a_file(args: &Args) {
             //
             // todo? because docopt defaults to an empty string if the data flag isn't given,
             // we can't tell if the user is trying to override the body to be empty.
-            let data = try_error!(args::get_data(args));
+            let data = try_error!(args::get_data(&args.flag_data, &withs));
             let body =
                 if !data.is_empty() {
                     data
@@ -162,25 +182,25 @@ fn spag_request_a_file(args: &Args) {
                     }
                 };
 
-            let headers = try_error!(args::resolve_headers(args, &y));
+            let headers = try_error!(args::resolve_headers(&args.flag_header, &y));
 
             let mut req = SpagRequest::new(request::method_from_str(&method), endpoint, uri);
             try_error!(req.add_headers(headers.iter()));
             req.set_body(body);
-            do_request(args, &req);
+            do_request(&req, &args.flag_remember_as, args.flag_verbose);
         },
         Err(msg) => { error!("{}", msg); }
     }
 }
 
-fn spag_request_show(args: &Args) {
+fn spag_request_cat(args: &RequestArgs) {
     let dir = try_error!(args::get_dir(args));
     let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
     let contents = try_error!(file::read_file(&filename));
     println!("{}", contents);
 }
 
-fn spag_request_show_params(args: &Args) {
+fn spag_request_inspect(args: &RequestArgs) {
     let dir = try_error!(args::get_dir(args));
     let filename = try_error!(request::get_request_filename(&args.arg_file, &dir));
     let contents = try_error!(file::read_file(&filename));
@@ -189,7 +209,7 @@ fn spag_request_show_params(args: &Args) {
     println!("{}", out);
 }
 
-fn spag_request_list(args: &Args) {
+fn spag_request_ls(args: &RequestArgs) {
     let dir = try_error!(args::get_dir(args));
     let filenames = try_error!(file::walk_dir(&dir));
     let mut yaml_files: Vec<&PathBuf> = filenames.iter()
@@ -208,36 +228,33 @@ fn spag_request_list(args: &Args) {
     }
 }
 
-fn spag_method(args: &Args) {
+fn spag_method(args: &MethodArgs) {
     // untemplate the resource
     let use_shortcuts = true;
-    let withs: HashMap<String, String> = args::get_withs(args);
-    let withs: HashMap<&str, &str> = withs.iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
-    let resource = try_error!(template::untemplate(&args.arg_resource, &withs, use_shortcuts));
+    let withs: HashMap<&str, &str> = HashMap::new();
+    let resource = try_error!(template::untemplate(&args.arg_path, &withs, use_shortcuts));
 
     let method = args::get_method_from_args(args);
-    let endpoint = try_error!(args::get_endpoint(args));
+    let endpoint = try_error!(args::get_endpoint(&args.flag_endpoint));
     let mut req = SpagRequest::new(method, endpoint, resource);
-    let headers = try_error!(args::resolve_headers_no_request_file(args));
+    let headers = try_error!(args::resolve_headers_no_request_file(&args.flag_header));
     try_error!(req.add_headers(headers.iter()));
 
-    let body = try_error!(args::get_data(args));
+    let body = try_error!(args::get_data(&args.flag_data, &withs));
     req.set_body(body);
-    do_request(args, &req);
+    do_request(&req, &args.flag_remember_as, args.flag_verbose);
 }
 
-fn do_request(args: &Args, req: &SpagRequest) {
+fn do_request(req: &SpagRequest, remember_as: &str, verbose: bool) {
     let mut handle = http::handle();
     let resp = try_error!(req.prepare(&mut handle).exec());
     try_error!(history::append(req, &resp));
     try_error!(remember::remember(req, &resp, "last.yml"));
-    if !args.flag_remember_as.is_empty() {
-        try_error!(remember::remember(req, &resp, &args.flag_remember_as));
+    if !remember_as.is_empty() {
+        try_error!(remember::remember(req, &resp, remember_as));
     }
 
-    if args.flag_verbose {
+    if verbose {
         let out = try_error!(history::get(&"0".to_string()));
         println!("{}", out);
     } else {
